@@ -50,7 +50,9 @@ npm run dev:worker
 npm run dev:web
 ```
 
-Open **http://localhost:5173**
+Open **http://localhost:5173** for the marketing landing page.  
+Open **http://localhost:5173/app** for the product (create forms, editor, submissions).  
+Public forms: `/f/:slug`.
 
 Flow: create form → add fields → save → publish → open `/f/:slug` → submit → view submissions.
 

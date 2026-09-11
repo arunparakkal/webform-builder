@@ -126,7 +126,8 @@ If Postgres is slow, jobs retry — we do not drop accepted submits.
 5. Web       → npm run dev:web          http://localhost:5173
 ```
 
-Create form: open **http://localhost:5173/** → Title + Slug → **Create form** button (on the home page, not in the top nav).
+Create form: open **http://localhost:5173/app** → Title + Slug → **Create form**.  
+Marketing site: **http://localhost:5173/**
 
 ---
 

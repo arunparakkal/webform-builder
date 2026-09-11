@@ -49,7 +49,9 @@ export function FormsListPage() {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">Your forms</h1>
-        <p className="mt-1 text-ink-muted">Create drafts, publish versions, and review submissions.</p>
+        <p className="mt-1 text-ink-muted">
+          Create a draft below, then open it to add fields, preview, and publish.
+        </p>
       </div>
 
       <form
