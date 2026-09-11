@@ -21,6 +21,15 @@ npx prisma generate --schema packages/db/prisma/schema.prisma
 
 Requires Docker Desktop for local Postgres/Redis. Point `DATABASE_URL` at a Supabase project instead if you are not using Compose.
 
+## Form schema (step 3)
+
+Shared package `@webform/form-schema`: TypeScript types + Zod for form definitions and submissions re-derived from a published revision (including show-if).
+
+```bash
+npm install
+npm test
+```
+
 When the full slice lands, the one command will be:
 
 ```bash

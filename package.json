@@ -8,7 +8,9 @@
   "scripts": {
     "db:generate": "npm run generate -w @webform/db",
     "db:migrate": "npm run migrate -w @webform/db",
-    "db:up": "docker compose up -d postgres"
+    "db:up": "docker compose up -d postgres",
+    "test": "npm run test -w @webform/form-schema",
+    "test:form-schema": "npm run test -w @webform/form-schema"
   },
   "engines": {
     "node": ">=20"
