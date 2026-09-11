@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FormStatus {
+  draft
+  published
+}
+
+/// Tenant that owns forms. Isolation is always by owner_id.
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  forms     Form[]
+
+  @@map("users")
+}
+
+/// Form identity + mutable draft. Live JSON lives on form_versions.
+model Form {
+  id     String @id @default(uuid()) @db.Uuid
+  ownerId String @map("owner_id") @db.Uuid
+  owner  User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  title  String
+  slug   String     @unique
+  status FormStatus @default(draft)
+
+  /// Pointer to the immutable live revision. Null until first publish.
+  publishedVersionId String?      @unique @map("published_version_id") @db.Uuid
+  publishedVersion   FormVersion? @relation("PublishedVersion", fields: [publishedVersionId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+
+  /// Editor working copy. Public serving never reads this column.
+  draftDefinition Json @map("draft_definition")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  versions    FormVersion[]     @relation("FormVersions")
+  submissions FormSubmission[]
+
+  @@index([ownerId])
+  @@map("forms")
+}
+
+/// Immutable published snapshot. definition is insert-only.
+model FormVersion {
+  id     String @id @default(uuid()) @db.Uuid
+  formId String @map("form_id") @db.Uuid
+  form   Form   @relation("FormVersions", fields: [formId], references: [id], onDelete: Cascade)
+
+  revision      Int
+  schemaVersion Int  @map("schema_version")
+  definition    Json
+  publishedAt   DateTime @default(now()) @map("published_at")
+
+  submissions  FormSubmission[]
+  publishedFor Form[]           @relation("PublishedVersion")
+
+  @@unique([formId, revision])
+  @@index([formId])
+  @@map("form_versions")
+}
+
+/// Answers keyed by field name. Always tied to the exact form_version_id.
+model FormSubmission {
+  id            String @id @default(uuid()) @db.Uuid
+  formId        String @map("form_id") @db.Uuid
+  formVersionId String @map("form_version_id") @db.Uuid
+
+  payload         Json
+  idempotencyKey  String   @unique @map("idempotency_key")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  form        Form        @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formVersion FormVersion @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+
+  @@index([formId, createdAt(sort: Desc)])
+  @@index([formVersionId])
+  @@map("form_submissions")
+}

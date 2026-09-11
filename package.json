@@ -1,0 +1,16 @@
+{
+  "name": "webform-builder",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "db:generate": "npm run generate -w @webform/db",
+    "db:migrate": "npm run migrate -w @webform/db",
+    "db:up": "docker compose up -d postgres"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
