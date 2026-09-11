@@ -9,8 +9,12 @@
     "db:generate": "npm run generate -w @webform/db",
     "db:migrate": "npm run migrate -w @webform/db",
     "db:up": "docker compose up -d postgres",
-    "test": "npm run test -w @webform/form-schema",
-    "test:form-schema": "npm run test -w @webform/form-schema"
+    "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api",
+    "test:form-schema": "npm run test -w @webform/form-schema",
+    "test:api": "npm run test -w @webform/api",
+    "dev:api": "npm run dev -w @webform/api",
+    "dev:worker": "npm run dev -w @webform/worker",
+    "seed": "npm run seed -w @webform/api"
   },
   "engines": {
     "node": ">=20"

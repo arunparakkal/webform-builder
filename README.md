@@ -30,6 +30,25 @@ npm install
 npm test
 ```
 
+## API + worker (step 4)
+
+Fastify REST API and BullMQ worker.
+
+1. Set `DATABASE_URL` to Supabase Postgres (or local Docker Postgres).
+2. Set `REDIS_URL` (local Redis or a Redis host).
+3. Apply migrations and seed the demo owner:
+
+```bash
+copy .env.example .env
+npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
+npx prisma generate --schema packages/db/prisma/schema.prisma
+npm run seed
+npm run dev:api
+npm run dev:worker
+```
+
+Owner routes use the seeded user by default (`DEMO_OWNER_EMAIL`). Override with header `X-Owner-Id`.
+
 When the full slice lands, the one command will be:
 
 ```bash
