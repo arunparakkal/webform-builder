@@ -56,6 +56,23 @@ npm run dev:worker
 
 Owner routes use the seeded user by default (`DEMO_OWNER_EMAIL`). Override with header `X-Owner-Id`.
 
+## Web UI (step 5)
+
+Vite + React app in `apps/web` (`@webform/web`). Proxies `/api` to the API on port 3001.
+
+With the API running:
+
+```bash
+npm install
+npm run dev:web
+```
+
+Open http://localhost:5173 — forms list, editor, draft preview, public form at `/f/:slug`, and submissions.
+
+## Redis (no Docker required)
+
+See [docs/REDIS.md](./docs/REDIS.md). On Windows you can install Redis via winget and keep `REDIS_URL=redis://localhost:6379`.
+
 When the full slice lands, the one command will be:
 
 ```bash

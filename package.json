@@ -14,6 +14,7 @@
     "test:api": "npm run test -w @webform/api",
     "dev:api": "npm run dev -w @webform/api",
     "dev:worker": "npm run dev -w @webform/worker",
+    "dev:web": "npm run dev -w @webform/web",
     "seed": "npm run seed -w @webform/api"
   },
   "engines": {
