@@ -62,14 +62,14 @@ export function LandingNav() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <span
-            className="cursor-default rounded-md px-2 py-1 text-sm text-ink-muted"
-            title="Authentication is planned, not implemented in this slice"
-          >
-            Sign in <span className="text-xs opacity-70">(soon)</span>
-          </span>
           <Link
-            to="/app"
+            to="/signin"
+            className="rounded-md px-2 py-1 text-sm text-ink-muted no-underline hover:text-ink"
+          >
+            Sign in
+          </Link>
+          <Link
+            to="/signup"
             className="rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-white no-underline hover:bg-accent-hover"
           >
             Get started
@@ -114,7 +114,14 @@ export function LandingNav() {
               ),
             )}
             <Link
-              to="/app"
+              to="/signin"
+              className="text-ink no-underline"
+              onClick={() => setOpen(false)}
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/signup"
               className="mt-2 rounded-md bg-accent px-3 py-2 text-center font-medium text-white no-underline"
               onClick={() => setOpen(false)}
             >

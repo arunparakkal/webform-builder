@@ -1,4 +1,5 @@
 import type { FormDefinition } from "@webform/form-schema";
+import { getAuthToken, useAuthStore, type AuthUser } from "../store/authStore";
 
 export type FormSummary = {
   id: string;
@@ -44,21 +45,57 @@ export type PublishedForm = {
   definition: FormDefinition;
 };
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export type AuthResponse = {
+  token: string;
+  user: AuthUser;
+};
+
+function formatApiError(body: { error?: unknown }): string {
+  const err = body.error;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    const flat = err as {
+      formErrors?: string[];
+      fieldErrors?: Record<string, string[] | undefined>;
+    };
+    if (Array.isArray(flat.formErrors) && flat.formErrors[0]) return flat.formErrors[0];
+    if (flat.fieldErrors) {
+      for (const messages of Object.values(flat.fieldErrors)) {
+        if (messages?.[0]) return messages[0];
+      }
+    }
+    return JSON.stringify(err);
+  }
+  return "Request failed";
+}
+
+async function request<T>(path: string, init?: RequestInit & { auth?: boolean }): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+
+  const useAuth = init?.auth !== false;
+  const token = getAuthToken();
+  if (useAuth && token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const { auth: _auth, ...fetchInit } = init ?? {};
   const response = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    ...fetchInit,
+    headers,
   });
+
+  if (response.status === 401 && useAuth && token) {
+    useAuthStore.getState().clearSession();
+  }
 
   if (!response.ok) {
     let message = `Request failed (${response.status})`;
     try {
       const body = (await response.json()) as { error?: unknown };
-      if (typeof body.error === "string") message = body.error;
-      else if (body.error) message = JSON.stringify(body.error);
+      message = formatApiError(body) || message;
     } catch {
       // keep default message
     }
@@ -70,6 +107,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  signup: (body: {
+    name?: string;
+    email: string;
+    password: string;
+    confirmPassword?: string;
+  }) =>
+    request<AuthResponse>("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(body),
+      auth: false,
+    }),
+
+  signin: (body: { email: string; password: string }) =>
+    request<AuthResponse>("/api/auth/signin", {
+      method: "POST",
+      body: JSON.stringify(body),
+      auth: false,
+    }),
+
+  me: () => request<{ user: AuthUser & { createdAt: string } }>("/api/auth/me"),
+
   listForms: () => request<FormSummary[]>("/api/forms"),
 
   createForm: (title: string, slug: string) =>
@@ -107,9 +165,22 @@ export const api = {
     return request<SubmissionsResponse>(`/api/forms/${id}/submissions${qs ? `?${qs}` : ""}`);
   },
 
-  exportSubmissionsUrl: (id: string) => `/api/forms/${id}/submissions/export`,
+  exportSubmissions: async (id: string) => {
+    const token = getAuthToken();
+    const response = await fetch(`/api/forms/${id}/submissions/export`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (response.status === 401 && token) {
+      useAuthStore.getState().clearSession();
+    }
+    if (!response.ok) {
+      throw new Error(`Export failed (${response.status})`);
+    }
+    return response.blob();
+  },
 
-  getPublishedForm: (slug: string) => request<PublishedForm>(`/api/public/forms/${slug}`),
+  getPublishedForm: (slug: string) =>
+    request<PublishedForm>(`/api/public/forms/${slug}`, { auth: false }),
 
   submitPublicForm: (
     slug: string,
@@ -120,6 +191,7 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify(body),
+        auth: false,
       },
     ),
 };

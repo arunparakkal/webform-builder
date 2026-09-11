@@ -23,6 +23,8 @@ Set:
 
 - `DATABASE_URL` — Supabase Postgres URI (`?sslmode=require`)
 - `REDIS_URL` — `redis://localhost:6379`
+- `JWT_SECRET` — long random string (required in production)
+- Optional: `DEMO_OWNER_EMAIL` / `DEMO_OWNER_PASSWORD` for `npm run seed`
 - Same `DATABASE_URL` in `packages/db/.env`
 
 ### 2. Database
@@ -51,10 +53,12 @@ npm run dev:web
 ```
 
 Open **http://localhost:5173** for the marketing landing page.  
-Open **http://localhost:5173/app** for the product (create forms, editor, submissions).  
-Public forms: `/f/:slug`.
+**Sign up** at `/signup` or **sign in** at `/signin`, then use **http://localhost:5173/app** (protected).  
+Public forms stay open at `/f/:slug` (no login).
 
-Flow: create form → add fields → save → publish → open `/f/:slug` → submit → view submissions.
+Demo seed user (after `npm run seed`): `owner@example.com` / `password123` (override via env).
+
+Flow: sign up → create form → add fields → save → publish → open `/f/:slug` → submit → view submissions.
 
 ## Tests
 

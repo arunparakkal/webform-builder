@@ -1,6 +1,16 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
 
 export function AppShell() {
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const clearSession = useAuthStore((s) => s.clearSession);
+
+  function signOut() {
+    clearSession();
+    navigate("/signin", { replace: true });
+  }
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-line/80 bg-surface/80 backdrop-blur-sm">
@@ -24,6 +34,18 @@ export function AppShell() {
             >
               Forms
             </Link>
+            {user ? (
+              <span className="hidden text-ink-muted sm:inline" title={user.email}>
+                {user.name || user.email}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={signOut}
+              className="rounded-md border border-line px-2.5 py-1 text-ink-muted hover:bg-paper-2 hover:text-ink"
+            >
+              Sign out
+            </button>
           </nav>
         </div>
       </header>

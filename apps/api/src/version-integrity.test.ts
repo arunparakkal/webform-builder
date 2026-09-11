@@ -41,7 +41,13 @@ describe("submission integrity under form-version change", () => {
       skip("DATABASE_URL not reachable — start Postgres/Supabase to run this test");
     }
 
-    const owner = await prisma.user.create({ data: { email } });
+    const owner = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: "$2b$10$InvalidPlaceholderHashForTestsOnly000000000000000u",
+        name: "Test Owner",
+      },
+    });
     ownerId = owner.id;
 
     const draftV1 = emptyFormDefinition("Contact");

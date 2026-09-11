@@ -1,17 +1,9 @@
-import { prisma } from "@webform/db";
 import {
   emptyFormDefinition,
   formDefinitionSchema,
   type FormDefinition,
 } from "@webform/form-schema";
-
-export async function ensureDemoOwner(email: string) {
-  return prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: { email },
-  });
-}
+import { prisma } from "@webform/db";
 
 export async function createForm(ownerId: string, title: string, slug: string) {
   const draft = emptyFormDefinition(title);

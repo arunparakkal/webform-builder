@@ -76,12 +76,25 @@ export function SubmissionsPage() {
             Submissions{form ? ` · ${form.title}` : ""}
           </h1>
         </div>
-        <a
-          href={api.exportSubmissionsUrl(id)}
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white no-underline hover:bg-accent-hover"
+        <button
+          type="button"
+          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+          onClick={async () => {
+            try {
+              const blob = await api.exportSubmissions(id);
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `submissions-${id}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Export failed");
+            }
+          }}
         >
           Export CSV
-        </a>
+        </button>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">

@@ -11,7 +11,7 @@ export function FinalCta() {
           Create a form, publish it, and start collecting structured responses.
         </p>
         <Link
-          to="/app"
+          to="/signup"
           className="mt-8 inline-flex rounded-md bg-accent px-5 py-3 text-sm font-medium text-white no-underline hover:bg-accent-hover"
         >
           Create your first form

@@ -18,7 +18,7 @@ export function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            to="/app"
+            to="/signup"
             className="rounded-md bg-accent px-5 py-3 text-sm font-medium text-white no-underline hover:bg-accent-hover"
           >
             Start building

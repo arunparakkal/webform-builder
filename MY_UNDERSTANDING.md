@@ -36,7 +36,9 @@ GitHub: https://github.com/arunparakkal/webform-builder
 
 **Core assessment product path works:** create → publish → public submit → store → inbox.
 
-**Not done (optional):** full Docker one-command for all services, real auth/login, cloud deploy, embed SDK.
+**Not done (optional):** full Docker one-command for all services, cloud deploy, embed SDK.
+
+**Auth (built):** signup / signin with Zod validation, bcrypt password hashes, JWT sessions. Dashboard (`/app`) and form routes require a signed-in user; public `/f/:slug` stays open.
 
 ---
 
@@ -169,7 +171,7 @@ Marketing site: **http://localhost:5173/**
 
 ## 9. What I should say in a review
 
-> We designed for scale with queue-first public ingest, immutable form versions, and Zod validation re-derived from the published definition. The working slice proves create/publish/submit/store with Redis+BullMQ, Supabase Postgres JSONB, and a React builder. Production edge (CDN, auth, SQS) is documented as Designed, not Built.
+> We designed for scale with queue-first public ingest, immutable form versions, and Zod validation re-derived from the published definition. The working slice proves create/publish/submit/store with Redis+BullMQ, Supabase Postgres JSONB, React builder, and JWT auth for the dashboard. Production edge (CDN, managed queue) is documented as Designed, not Built.
 
 ---
 
