@@ -9,17 +9,24 @@ Multi-tenant form builder: visual editor, immutable publish, public submit at bu
 
 ## Database (step 2)
 
-Postgres stores tenants, mutable drafts, immutable form versions, and submissions (JSONB payloads). Redis is in Compose for the later ingest cache/queue.
+Postgres stores tenants, mutable drafts, immutable form versions, and submissions (JSONB payloads).
+
+**Recommended now (no local Postgres required):** connect **Supabase** — see [docs/SUPABASE.md](./docs/SUPABASE.md).
 
 ```bash
-copy .env.example .env
-docker compose up -d postgres redis
-npm install
+# 1. Put Supabase URI in .env and packages/db/.env as DATABASE_URL
+# 2. Then:
 npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
 npx prisma generate --schema packages/db/prisma/schema.prisma
+npm run seed
 ```
 
-Requires Docker Desktop for local Postgres/Redis. Point `DATABASE_URL` at a Supabase project instead if you are not using Compose.
+**Optional later:** Docker Compose for local Postgres + Redis:
+
+```bash
+docker compose up -d postgres redis
+```
+
 
 ## Form schema (step 3)
 
