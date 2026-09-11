@@ -372,13 +372,14 @@ Publish is one database transaction: insert `form_versions`, set `published_vers
 - Redis cache of published definitions
 - BullMQ worker persisting submissions with `form_version_id` and idempotency
 - Prisma schema: `users`, `forms`, `form_versions`, `form_submissions`
-- Docker Compose: web, api, worker, Postgres, Redis — `docker compose up --build`
+- Local run: Supabase Postgres + Redis for Windows (or Compose when Docker is available)
 - Cursor-paginated, filterable inbox and streamed CSV export
-- Load generator against the public submit path
+- Load generator (`npm run load:setup` / `npm run load`) against the public submit path
 - Automated tests: dynamic server validation (including show-if); submission integrity after republish
 
 ### Designed, not built
 
+- Full one-command `docker compose up --build` for all services (Compose file exists; optional when Docker is available)
 - Cloudflare CDN, WAF, bot management, CAPTCHA
 - Load balancer and autoscaling Fastify + worker replicas (scale on queue depth)
 - Hosted Supabase Auth, Row Level Security, point-in-time recovery

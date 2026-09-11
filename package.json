@@ -15,7 +15,9 @@
     "dev:api": "npm run dev -w @webform/api",
     "dev:worker": "npm run dev -w @webform/worker",
     "dev:web": "npm run dev -w @webform/web",
-    "seed": "npm run seed -w @webform/api"
+    "seed": "npm run seed -w @webform/api",
+    "load:setup": "node scripts/load/setup.mjs",
+    "load": "node scripts/load/burst.mjs"
   },
   "engines": {
     "node": ">=20"
