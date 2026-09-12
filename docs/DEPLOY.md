@@ -59,6 +59,8 @@ Migrations run in the API **build** command (`db:migrate:deploy`) because free-t
 
 Free web services sleep when idle; the first request can take ~30–60s.
 
+To reduce cold starts, this repo includes [`.github/workflows/keep-render-awake.yml`](../.github/workflows/keep-render-awake.yml), which pings `/health` every 10 minutes. Enable GitHub Actions on the repo (Actions tab → allow workflows). Optional secret `RENDER_HEALTH_URL` overrides the default `https://webform-api.onrender.com/health`.
+
 ### 5. Vercel (frontend)
 
 1. Import the same GitHub repo.
