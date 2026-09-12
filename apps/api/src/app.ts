@@ -25,7 +25,11 @@ export async function buildApp(env: Env, redis: Redis) {
   app.decorate("redis", redis);
   app.decorate("env", env);
 
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
 
   app.get("/health", async () => ({ ok: true }));
 
