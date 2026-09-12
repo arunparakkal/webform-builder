@@ -5,8 +5,6 @@ const navItems = [
   { label: "My Forms", to: "/app", icon: "forms" },
   { label: "Templates", to: "/app/templates", icon: "templates" },
   { label: "Submissions", to: null, icon: "inbox" },
-  { label: "Analytics", to: null, icon: "chart" },
-  { label: "Integrations", to: null, icon: "plug" },
   { label: "Settings", to: null, icon: "settings" },
 ] as const;
 
@@ -34,18 +32,6 @@ function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
         <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
           <path d="M3.5 10.5 5 4.5h10l1.5 6v4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
           <path d="M3.5 10.5h3.2l1 2h4.6l1-2h3.2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        </svg>
-      );
-    case "chart":
-      return (
-        <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
-          <path d="M4 15V9M10 15V5M16 15v-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-      );
-    case "plug":
-      return (
-        <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
-          <path d="M7 3.5v3M13 3.5v3M5.5 6.5h9v2.2A4.5 4.5 0 0 1 10 13.2v3.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     default:
