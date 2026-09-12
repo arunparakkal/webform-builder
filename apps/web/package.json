@@ -6,28 +6,28 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
-    "@webform/form-schema": "*",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.9.1",
-    "zod": "^3.25.76",
-    "zustand": "^5.0.8"
-  },
-  "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22.18.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "@webform/form-schema": "*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.9.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^8.3.0",
+    "zod": "^3.25.76",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
     "vitest": "^3.2.4"
   }
 }
