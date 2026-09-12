@@ -52,6 +52,8 @@ Commit and push these deploy files, then connect the same repo to Render and Ver
 3. After deploy, open `https://YOUR_API.onrender.com/health` → `{ "ok": true }`.
 4. Worker logs should show `submission worker listening`.
 
+Migrations run in the API **build** command (`db:migrate:deploy`) because free-tier Render does not support `preDeployCommand`.
+
 Free web services sleep when idle; the first request can take ~30–60s.
 
 ### 5. Vercel (frontend)
