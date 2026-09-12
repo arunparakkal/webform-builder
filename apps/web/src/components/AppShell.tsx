@@ -1,14 +1,24 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 
-const navItems = [
-  { label: "My Forms", to: "/app", icon: "forms" },
-  { label: "Templates", to: "/app/templates", icon: "templates" },
-  { label: "Submissions", to: null, icon: "inbox" },
-  { label: "Settings", to: null, icon: "settings" },
-] as const;
+const dashboardNav = [
+  { label: "My Forms", to: "/app", icon: "forms" as const },
+  { label: "Templates", to: "/app/templates", icon: "templates" as const },
+  { label: "Submissions", to: null, icon: "inbox" as const },
+  { label: "Settings", to: null, icon: "settings" as const },
+];
 
-function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
+const editorNav = [
+  { label: "My Forms", to: "/app", icon: "forms" as const },
+  { label: "Templates", to: "/app/templates", icon: "templates" as const },
+  { label: "Submissions", to: null, icon: "inbox" as const },
+];
+
+function NavIcon({
+  name,
+}: {
+  name: "forms" | "templates" | "inbox" | "settings";
+}) {
   const common = "h-4 w-4";
   switch (name) {
     case "forms":
@@ -30,18 +40,41 @@ function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
     case "inbox":
       return (
         <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
-          <path d="M3.5 10.5 5 4.5h10l1.5 6v4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-4Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-          <path d="M3.5 10.5h3.2l1 2h4.6l1-2h3.2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <path
+            d="M3.5 10.5 5 4.5h10l1.5 6v4a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-4Z"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M3.5 10.5h3.2l1 2h4.6l1-2h3.2"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     default:
       return (
         <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
           <circle cx="10" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path
+            d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
         </svg>
       );
   }
+}
+
+function BrandMark() {
+  return (
+    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2563EB] text-sm font-bold text-white">
+      F
+    </span>
+  );
 }
 
 export function AppShell() {
@@ -51,10 +84,8 @@ export function AppShell() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const isEditor = location.pathname.startsWith("/forms/");
 
-  const initials = (user?.name || user?.email || "U")
-    .split(/\s+|@/)[0]
-    ?.slice(0, 1)
-    .toUpperCase();
+  const displayName = user?.name || user?.email || "User";
+  const initials = displayName.split(/\s+|@/)[0]?.slice(0, 1).toUpperCase() ?? "U";
 
   function signOut() {
     clearSession();
@@ -63,56 +94,101 @@ export function AppShell() {
 
   if (isEditor) {
     return (
-      <div className="min-h-screen bg-[#F5F7FA] text-[#0B1F44]">
+      <div className="min-h-screen bg-[#F4F6F9] text-[#0F172A]">
         <header className="sticky top-0 z-30 border-b border-[#E5E7EB] bg-white">
-          <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-8">
-              <Link to="/app" className="flex items-center gap-2.5 no-underline">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2563EB] text-white">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-                    <path
-                      d="M7 12c2.5-4 7.5-4 10 0-2.5 4-7.5 4-10 0Z"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    />
-                    <path d="M12 10.5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <div className="flex items-center gap-4 px-4 py-2.5 sm:px-5">
+            <Link to="/app" className="flex shrink-0 items-center gap-2.5 no-underline">
+              <BrandMark />
+              <span className="text-[15px] font-semibold tracking-tight text-[#0F172A]">
+                FormBuilder
+              </span>
+            </Link>
+
+            <nav className="ml-2 hidden items-center gap-1 lg:flex" aria-label="Product">
+              {editorNav.map((item) => {
+                const active =
+                  item.to === "/app"
+                    ? location.pathname === "/app"
+                    : item.to
+                      ? location.pathname.startsWith(item.to)
+                      : false;
+                const className = `inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm no-underline ${
+                  active
+                    ? "bg-[#EFF6FF] font-medium text-[#2563EB]"
+                    : item.to
+                      ? "text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0F172A]"
+                      : "cursor-default text-[#94A3B8]"
+                }`;
+                if (!item.to) {
+                  return (
+                    <span key={item.label} className={className} title="Coming soon">
+                      <NavIcon name={item.icon} />
+                      {item.label}
+                    </span>
+                  );
+                }
+                return (
+                  <Link key={item.label} to={item.to} className={className}>
+                    <NavIcon name={item.icon} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="ml-auto flex items-center gap-2.5">
+              <label className="relative hidden md:block">
+                <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[#94A3B8]">
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+                    <circle cx="9" cy="9" r="5.5" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="m13.5 13.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
                 </span>
-                <span className="text-[15px] font-semibold tracking-tight text-[#0B1F44]">
-                  FormBuilder
-                </span>
-              </Link>
-              <nav className="hidden items-center gap-6 text-sm md:flex" aria-label="Product">
-                <Link to="/app" className="text-[#64748B] no-underline hover:text-[#0B1F44]">
-                  Dashboard
-                </Link>
-                <span className="border-b-2 border-[#2563EB] pb-0.5 font-medium text-[#2563EB]">
-                  Editor
-                </span>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3">
-              {user ? (
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-semibold text-white">
-                    {initials}
-                  </span>
-                  <span className="hidden max-w-[10rem] truncate text-sm font-medium text-[#0B1F44] sm:inline">
-                    {user.name || user.email}
-                  </span>
-                </div>
-              ) : null}
+                <input
+                  className="w-56 rounded-lg border border-[#E5E7EB] bg-[#F8FAFC] py-2 pr-3 pl-9 text-sm outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:bg-white focus:ring-2 focus:ring-[#2563EB]/15"
+                  placeholder="Search forms..."
+                  aria-label="Search forms"
+                />
+              </label>
               <button
                 type="button"
-                onClick={signOut}
-                className="rounded-lg border border-[#E5E7EB] px-2.5 py-1.5 text-xs font-medium text-[#64748B] hover:bg-[#F8FAFC] hover:text-[#0B1F44]"
+                className="relative rounded-lg border border-[#E5E7EB] p-2 text-[#64748B] hover:bg-[#F8FAFC]"
+                aria-label="Notifications"
+                title="Notifications"
               >
-                Sign out
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+                  <path
+                    d="M10 17a1.5 1.5 0 0 0 1.5-1.5h-3A1.5 1.5 0 0 0 10 17Zm5-4.5V9a5 5 0 1 0-10 0v3.5L3.5 14v1h13v-1L15 12.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#EF4444] ring-2 ring-white" />
               </button>
+              <div className="flex items-center gap-2 rounded-lg py-1 pr-1 pl-1">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-semibold text-white">
+                  {initials}
+                </span>
+                <span className="hidden max-w-[8rem] truncate text-sm font-medium text-[#0F172A] sm:inline">
+                  {displayName.split(/\s+|@/)[0]}
+                </span>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="rounded-md p-1 text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                  aria-label="Account menu / sign out"
+                  title="Sign out"
+                >
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+                    <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </header>
-        <main className="px-0 py-0">
+        <main>
           <Outlet />
         </main>
       </div>
@@ -124,21 +200,12 @@ export function AppShell() {
       <div className="flex min-h-screen">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-[#E5E7EB] bg-white px-4 py-5 md:flex">
           <Link to="/app" className="mb-8 flex items-center gap-2.5 px-2 no-underline">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB] text-white">
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-                <path
-                  d="M7 12c2.5-4 7.5-4 10 0-2.5 4-7.5 4-10 0Z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                />
-                <path d="M12 10.5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </span>
+            <BrandMark />
             <span className="text-base font-semibold tracking-tight">FormBuilder</span>
           </Link>
 
           <nav className="flex flex-1 flex-col gap-1" aria-label="Dashboard">
-            {navItems.map((item) => {
+            {dashboardNav.map((item) => {
               const onTemplates = location.pathname.startsWith("/app/templates");
               const onMyForms = location.pathname === "/app";
               let active = false;
@@ -210,7 +277,7 @@ export function AppShell() {
                 </svg>
               </button>
               {user ? (
-                <div className="flex items-center gap-2.5 rounded-full border border-[#E5E7EB] py-1 pl-1 pr-3">
+                <div className="flex items-center gap-2.5 rounded-full border border-[#E5E7EB] py-1 pr-3 pl-1">
                   <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2563EB] text-xs font-semibold text-white">
                     {initials}
                   </span>

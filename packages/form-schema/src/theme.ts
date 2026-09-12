@@ -23,6 +23,13 @@ export const DEFAULT_FORM_THEME: FormTheme = {
   buttonStyle: "filled",
   showQuestionNumbers: false,
   cardShadow: true,
+  pageBackgroundImage: "",
+  pageBackgroundOverlay: "",
+  cardStyle: "solid",
+  inputStyle: "box",
+  labelUppercase: false,
+  fieldBands: false,
+  formLayout: "classic",
 };
 
 export function resolveFormTheme(theme?: FormTheme | null): FormTheme {
@@ -34,5 +41,12 @@ export function resolveFormTheme(theme?: FormTheme | null): FormTheme {
     fieldSize: theme.fieldSize ?? DEFAULT_FORM_THEME.fieldSize,
     buttonSize: theme.buttonSize ?? DEFAULT_FORM_THEME.buttonSize,
     buttonWidth: theme.buttonWidth ?? "auto",
+    pageBackgroundImage: theme.pageBackgroundImage ?? "",
+    pageBackgroundOverlay: theme.pageBackgroundOverlay ?? "",
+    cardStyle: theme.cardStyle ?? "solid",
+    inputStyle: theme.inputStyle ?? "box",
+    labelUppercase: theme.labelUppercase ?? false,
+    fieldBands: theme.fieldBands ?? false,
+    formLayout: theme.formLayout ?? "classic",
   };
 }

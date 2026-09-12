@@ -72,6 +72,20 @@ export type FormTheme = {
   buttonStyle: "filled" | "outline" | "soft";
   showQuestionNumbers: boolean;
   cardShadow: boolean;
+  /** Optional full-bleed page background image URL (Themes gallery). */
+  pageBackgroundImage?: string;
+  /** Optional overlay on top of the background image, e.g. rgba(0,0,0,0.35). */
+  pageBackgroundOverlay?: string;
+  /** How the form card is drawn on the page. */
+  cardStyle?: "solid" | "glass" | "flat";
+  /** How text inputs / selects / textareas are drawn. */
+  inputStyle?: "box" | "underline" | "outline";
+  /** Uppercase field labels (minimal themes). */
+  labelUppercase?: boolean;
+  /** Colorful band behind each field (Clever Colorful style). */
+  fieldBands?: boolean;
+  /** classic = all questions; card = one question per step. */
+  formLayout?: "classic" | "card";
 };
 
 export type FormDefinitionV1 = {

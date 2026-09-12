@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { FormRenderer, ThemedSuccess } from "../components/FormRenderer";
+import { pageSurfaceStyle } from "../lib/formThemes";
 
 export function PublicFormPage() {
   const { slug = "" } = useParams();
@@ -59,14 +60,14 @@ export function PublicFormPage() {
 
   if (success) {
     return (
-      <div className={embed ? "" : "min-h-screen"} style={{ background: theme.colors.page }}>
+      <div className={embed ? "" : "min-h-screen"} style={pageSurfaceStyle(theme)}>
         <ThemedSuccess theme={theme} message={success} compact={embed} />
       </div>
     );
   }
 
   return (
-    <div className={embed ? "" : "min-h-screen"} style={{ background: theme.colors.page }}>
+    <div className={embed ? "" : "min-h-screen"} style={pageSurfaceStyle(theme)}>
       {!embed ? (
         <div className="mx-auto flex max-w-xl items-baseline justify-between px-4 pt-6 text-xs" style={{ color: theme.colors.muted }}>
           <span>Webform</span>

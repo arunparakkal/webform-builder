@@ -26,6 +26,13 @@ export const formThemeSchema = z.object({
   buttonStyle: z.enum(["filled", "outline", "soft"]),
   showQuestionNumbers: z.boolean(),
   cardShadow: z.boolean(),
+  pageBackgroundImage: z.union([z.string().url(), z.literal("")]).optional(),
+  pageBackgroundOverlay: z.string().max(120).optional(),
+  cardStyle: z.enum(["solid", "glass", "flat"]).optional().default("solid"),
+  inputStyle: z.enum(["box", "underline", "outline"]).optional().default("box"),
+  labelUppercase: z.boolean().optional().default(false),
+  fieldBands: z.boolean().optional().default(false),
+  formLayout: z.enum(["classic", "card"]).optional().default("classic"),
 });
 
 

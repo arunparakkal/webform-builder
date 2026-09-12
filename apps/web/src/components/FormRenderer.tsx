@@ -7,7 +7,7 @@ import {
   type FormField,
   type FormTheme,
 } from "@webform/form-schema";
-import { fontFamily, inputRadius, radiusPx } from "../lib/formThemes";
+import { FIELD_BAND_COLORS, cardSurfaceStyle, fontFamily, inputControlStyle, inputRadius, pageSurfaceStyle, radiusPx } from "../lib/formThemes";
 
 type Props = {
   definition: FormDefinition;
@@ -48,12 +48,17 @@ export function FormRenderer({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [cardStep, setCardStep] = useState(0);
 
   const visibleFields = useMemo(
     () => definition.fields.filter((field) => isFieldVisible(field, definition, values)),
     [definition, values],
   );
 
+  const isCardLayout = theme.formLayout === "card";
+  const safeCardStep = Math.min(cardStep, Math.max(visibleFields.length - 1, 0));
+  const cardField = isCardLayout ? visibleFields[safeCardStep] : null;
+  const isLastCard = isCardLayout && safeCardStep >= visibleFields.length - 1;
   function setFieldValue(name: string, value: unknown) {
     setValues((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => {
@@ -137,27 +142,90 @@ export function FormRenderer({
         >
           {definition.meta.title}
         </h1>
-        {definition.meta.description ? (
+        {definition.meta.description && !isCardLayout ? (
           <p className="mt-2" style={{ color: theme.colors.muted }}>
             {definition.meta.description}
           </p>
         ) : null}
       </div>
 
-      {visibleFields.map((field, index) => (
-        <FieldControl
-          key={field.id}
-          field={field}
-          value={values[field.name]}
-          error={errors[field.name]}
-          disabled={readOnly || submitting}
-          theme={theme}
-          selected={selectedFieldId === field.id}
-          number={theme.showQuestionNumbers ? index + 1 : undefined}
-          onSelect={onSelectField ? () => onSelectField(field.id) : undefined}
-          onChange={(value) => setFieldValue(field.name, value)}
-        />
-      ))}
+      {isCardLayout && cardField ? (
+        <>
+          <FieldControl
+            key={cardField.id}
+            field={cardField}
+            value={values[cardField.name]}
+            error={errors[cardField.name]}
+            disabled={readOnly || submitting}
+            theme={theme}
+            selected={selectedFieldId === cardField.id}
+            number={theme.showQuestionNumbers ? safeCardStep + 1 : undefined}
+            bandIndex={safeCardStep}
+            onSelect={onSelectField ? () => onSelectField(cardField.id) : undefined}
+            onChange={(value) => setFieldValue(cardField.name, value)}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={safeCardStep <= 0}
+              onClick={() => setCardStep((s) => Math.max(0, s - 1))}
+              className="flex h-10 w-10 items-center justify-center rounded-lg disabled:opacity-40"
+              style={{ background: theme.colors.button, color: theme.colors.buttonText }}
+              aria-label="Previous question"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              disabled={isLastCard}
+              onClick={() => setCardStep((s) => Math.min(visibleFields.length - 1, s + 1))}
+              className="flex h-10 w-10 items-center justify-center rounded-lg disabled:opacity-40"
+              style={{ background: theme.colors.button, color: theme.colors.buttonText }}
+              aria-label="Next question"
+            >
+              →
+            </button>
+            <div className="ml-2 flex flex-1 items-center gap-1.5">
+              {visibleFields.map((f, i) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-label={`Go to question ${i + 1}`}
+                  onClick={() => setCardStep(i)}
+                  className="h-2 flex-1 rounded-full"
+                  style={{
+                    background:
+                      i === safeCardStep
+                        ? theme.colors.button
+                        : i < safeCardStep
+                          ? `color-mix(in srgb, ${theme.colors.button} 55%, ${theme.colors.border})`
+                          : theme.colors.border,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <p className="text-xs" style={{ color: theme.colors.muted }}>
+            Question {visibleFields.length === 0 ? 0 : safeCardStep + 1} of {visibleFields.length}
+          </p>
+        </>
+      ) : (
+        visibleFields.map((field, index) => (
+          <FieldControl
+            key={field.id}
+            field={field}
+            value={values[field.name]}
+            error={errors[field.name]}
+            disabled={readOnly || submitting}
+            theme={theme}
+            selected={selectedFieldId === field.id}
+            number={theme.showQuestionNumbers ? index + 1 : undefined}
+            bandIndex={index}
+            onSelect={onSelectField ? () => onSelectField(field.id) : undefined}
+            onChange={(value) => setFieldValue(field.name, value)}
+          />
+        ))
+      )}
 
       {showHoneypot ? (
         <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0" aria-hidden="true">
@@ -175,7 +243,7 @@ export function FormRenderer({
 
       {formError ? <p className="text-sm" style={{ color: "#b42318" }}>{formError}</p> : null}
 
-      {!readOnly && (onSubmit || previewSubmit) ? (
+      {!readOnly && (onSubmit || previewSubmit) && (!isCardLayout || isLastCard || visibleFields.length === 0) ? (
         <ThemedButton theme={theme} disabled={submitting || !onSubmit} preview={!onSubmit}>
           {submitting ? "Submitting…" : (submitLabel ?? definition.settings.submitLabel)}
         </ThemedButton>
@@ -207,7 +275,7 @@ export function ThemedFormFrame({
     <div
       className="w-full"
       style={{
-        background: theme.colors.page,
+        ...pageSurfaceStyle(theme),
         padding: pagePad,
         minHeight: compact ? undefined : "100%",
         fontFamily: fontFamily(theme.font),
@@ -216,11 +284,9 @@ export function ThemedFormFrame({
       <div
         className="mx-auto w-full max-w-xl"
         style={{
-          background: theme.colors.card,
+          ...cardSurfaceStyle(theme),
           color: theme.colors.text,
           borderRadius: radiusPx(theme.radius),
-          border: `1px solid ${theme.colors.border}`,
-          boxShadow: theme.cardShadow ? "0 10px 30px rgba(15, 23, 42, 0.08)" : "none",
           padding: pad,
         }}
       >
@@ -362,6 +428,7 @@ type FieldControlProps = {
   theme: FormTheme;
   selected?: boolean;
   number?: number;
+  bandIndex?: number;
   onSelect?: () => void;
   onChange: (value: unknown) => void;
 };
@@ -374,21 +441,13 @@ function FieldControl({
   theme,
   selected,
   number,
+  bandIndex = 0,
   onSelect,
   onChange,
 }: FieldControlProps) {
   const inputId = `field-${field.id}`;
-  const controlStyle: CSSProperties = {
-    marginTop: "0.25rem",
-    width: "100%",
-    borderRadius: inputRadius(theme.radius),
-    border: `1px solid ${theme.colors.border}`,
-    background: theme.colors.input,
-    color: theme.colors.text,
-    padding: sizePadding(theme.fieldSize, "field"),
-    fontSize: sizeFont(theme.fieldSize),
-    outline: "none",
-  };
+  const controlStyle = inputControlStyle(theme);
+  const band = theme.fieldBands ? FIELD_BAND_COLORS[bandIndex % FIELD_BAND_COLORS.length] : null;
 
   return (
     <div
@@ -407,21 +466,34 @@ function FieldControl({
       }
       style={{
         textAlign: theme.align,
-        borderRadius: inputRadius(theme.radius),
+        borderRadius: band ? radiusPx(theme.radius) : inputRadius(theme.radius),
         outline: selected ? `2px solid ${theme.colors.button}` : undefined,
         outlineOffset: selected ? 4 : undefined,
-        background: selected ? `color-mix(in srgb, ${theme.colors.button} 8%, transparent)` : undefined,
-        padding: selected ? "0.5rem" : undefined,
+        background: band
+          ? band
+          : selected
+            ? `color-mix(in srgb, ${theme.colors.button} 8%, transparent)`
+            : undefined,
+        padding: band ? "0.85rem 1rem" : selected ? "0.5rem" : undefined,
         cursor: onSelect ? "pointer" : undefined,
       }}
     >
-      <label htmlFor={inputId} className="block text-sm font-medium" style={{ color: theme.colors.text }}>
-        {number != null ? <span style={{ color: theme.colors.muted }}>{number}. </span> : null}
+      <label
+        htmlFor={inputId}
+        className="block text-sm font-medium"
+        style={{
+          color: band ? "#ffffff" : theme.colors.text,
+          textTransform: theme.labelUppercase ? "uppercase" : undefined,
+          letterSpacing: theme.labelUppercase ? "0.06em" : undefined,
+          fontSize: theme.labelUppercase ? "0.75rem" : undefined,
+        }}
+      >
+        {number != null ? <span style={{ color: band ? "rgba(255,255,255,0.8)" : theme.colors.muted }}>{number}. </span> : null}
         {field.label}
-        {field.required ? <span className="ml-1" style={{ color: "#b42318" }}>*</span> : null}
+        {field.required ? <span className="ml-1" style={{ color: band ? "#fecaca" : "#b42318" }}>*</span> : null}
       </label>
       {field.helpText ? (
-        <p className="mt-0.5 text-xs" style={{ color: theme.colors.muted }}>
+        <p className="mt-0.5 text-xs" style={{ color: band ? "rgba(255,255,255,0.85)" : theme.colors.muted }}>
           {field.helpText}
         </p>
       ) : null}
