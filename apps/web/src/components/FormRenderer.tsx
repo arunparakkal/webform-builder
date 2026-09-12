@@ -1,10 +1,13 @@
+import { useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import {
   isFieldVisible,
   parseSubmission,
+  resolveFormTheme,
   type FormDefinition,
   type FormField,
+  type FormTheme,
 } from "@webform/form-schema";
-import { useMemo, useState, type FormEvent } from "react";
+import { fontFamily, inputRadius, radiusPx } from "../lib/formThemes";
 
 type Props = {
   definition: FormDefinition;
@@ -12,13 +15,14 @@ type Props = {
   submitLabel?: string;
   readOnly?: boolean;
   showHoneypot?: boolean;
+  framed?: boolean;
+  compactFrame?: boolean;
+  /** Highlight this field in the live preview (editor selection). */
+  selectedFieldId?: string | null;
+  /** Show submit button even when there is no onSubmit (editor preview). */
+  previewSubmit?: boolean;
+  onSelectField?: (fieldId: string) => void;
 };
-
-function emptyValue(field: FormField): unknown {
-  if (field.type === "multiselect" || field.type === "checkbox") return [] as string[];
-  if (field.type === "number") return "";
-  return "";
-}
 
 export function FormRenderer({
   definition,
@@ -26,7 +30,13 @@ export function FormRenderer({
   submitLabel,
   readOnly = false,
   showHoneypot = false,
+  framed = false,
+  compactFrame = false,
+  selectedFieldId = null,
+  previewSubmit = false,
+  onSelectField,
 }: Props) {
+  const theme = resolveFormTheme(definition.theme);
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
     for (const field of definition.fields) {
@@ -105,24 +115,46 @@ export function FormRenderer({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="relative space-y-5" noValidate>
+  const gap = theme.density === "compact" ? "1rem" : "1.25rem";
+  const form = (
+    <form
+      onSubmit={handleSubmit}
+      className="relative"
+      noValidate
+      style={{
+        fontFamily: fontFamily(theme.font),
+        color: theme.colors.text,
+        textAlign: theme.align,
+        display: "flex",
+        flexDirection: "column",
+        gap,
+      }}
+    >
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
+        <h1
+          className="font-display text-3xl font-semibold tracking-tight"
+          style={{ color: theme.colors.title }}
+        >
           {definition.meta.title}
         </h1>
         {definition.meta.description ? (
-          <p className="mt-2 text-ink-muted">{definition.meta.description}</p>
+          <p className="mt-2" style={{ color: theme.colors.muted }}>
+            {definition.meta.description}
+          </p>
         ) : null}
       </div>
 
-      {visibleFields.map((field) => (
+      {visibleFields.map((field, index) => (
         <FieldControl
           key={field.id}
           field={field}
           value={values[field.name]}
           error={errors[field.name]}
           disabled={readOnly || submitting}
+          theme={theme}
+          selected={selectedFieldId === field.id}
+          number={theme.showQuestionNumbers ? index + 1 : undefined}
+          onSelect={onSelectField ? () => onSelectField(field.id) : undefined}
           onChange={(value) => setFieldValue(field.name, value)}
         />
       ))}
@@ -141,18 +173,184 @@ export function FormRenderer({
         </div>
       ) : null}
 
-      {formError ? <p className="text-sm text-danger">{formError}</p> : null}
+      {formError ? <p className="text-sm" style={{ color: "#b42318" }}>{formError}</p> : null}
 
-      {!readOnly && onSubmit ? (
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
-        >
+      {!readOnly && (onSubmit || previewSubmit) ? (
+        <ThemedButton theme={theme} disabled={submitting || !onSubmit} preview={!onSubmit}>
           {submitting ? "Submitting…" : (submitLabel ?? definition.settings.submitLabel)}
-        </button>
+        </ThemedButton>
       ) : null}
     </form>
+  );
+
+  if (!framed) return form;
+
+  return (
+    <ThemedFormFrame theme={theme} compact={compactFrame}>
+      {form}
+    </ThemedFormFrame>
+  );
+}
+
+export function ThemedFormFrame({
+  theme,
+  compact = false,
+  children,
+}: {
+  theme: FormTheme;
+  compact?: boolean;
+  children: ReactNode;
+}) {
+  const pad = compact ? "1rem" : theme.density === "compact" ? "1.25rem" : "2rem";
+  const pagePad = compact ? "0.75rem" : "2.5rem 1rem";
+  return (
+    <div
+      className="w-full"
+      style={{
+        background: theme.colors.page,
+        padding: pagePad,
+        minHeight: compact ? undefined : "100%",
+        fontFamily: fontFamily(theme.font),
+      }}
+    >
+      <div
+        className="mx-auto w-full max-w-xl"
+        style={{
+          background: theme.colors.card,
+          color: theme.colors.text,
+          borderRadius: radiusPx(theme.radius),
+          border: `1px solid ${theme.colors.border}`,
+          boxShadow: theme.cardShadow ? "0 10px 30px rgba(15, 23, 42, 0.08)" : "none",
+          padding: pad,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function ThemedSuccess({
+  theme,
+  message,
+  compact = false,
+}: {
+  theme: FormTheme;
+  message: string;
+  compact?: boolean;
+}) {
+  return (
+    <ThemedFormFrame theme={theme} compact={compact}>
+      <div style={{ textAlign: theme.align }}>
+        <h1 className="font-display text-3xl font-semibold tracking-tight" style={{ color: theme.colors.title }}>
+          Submitted
+        </h1>
+        <p className="mt-3" style={{ color: theme.colors.muted }}>
+          {message}
+        </p>
+      </div>
+    </ThemedFormFrame>
+  );
+}
+
+function emptyValue(field: FormField): unknown {
+  if (field.type === "multiselect" || field.type === "checkbox") return [] as string[];
+  if (field.type === "number") return "";
+  return "";
+}
+
+function sizePadding(size: FormTheme["fieldSize"] | FormTheme["buttonSize"], kind: "field" | "button" = "field"): string {
+  if (kind === "button") {
+    if (size === "sm") return "0.45rem 1.1rem";
+    if (size === "lg") return "0.75rem 1.75rem";
+    return "0.55rem 1.4rem";
+  }
+  if (size === "sm") return "0.4rem 0.7rem";
+  if (size === "lg") return "0.85rem 1.15rem";
+  return "0.6rem 0.9rem";
+}
+
+function sizeFont(size: FormTheme["fieldSize"] | FormTheme["buttonSize"]): string {
+  if (size === "sm") return "0.8125rem";
+  if (size === "lg") return "1rem";
+  return "0.875rem";
+}
+
+function ThemedButton({
+  theme,
+  disabled,
+  preview,
+  children,
+}: {
+  theme: FormTheme;
+  disabled?: boolean;
+  preview?: boolean;
+  children: ReactNode;
+}) {
+  const radius = inputRadius(theme.radius);
+  const base: CSSProperties = {
+    borderRadius: radius,
+    padding: sizePadding(theme.buttonSize, "button"),
+    fontSize: sizeFont(theme.buttonSize),
+    fontWeight: 600,
+    width: theme.buttonWidth === "full" ? "100%" : "auto",
+    minWidth: theme.buttonWidth === "full" ? undefined : "7.5rem",
+    maxWidth: theme.buttonWidth === "full" ? undefined : "14rem",
+    alignSelf: "center",
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: "0.25rem",
+    marginLeft: "auto",
+    marginRight: "auto",
+    cursor: disabled || preview ? "default" : "pointer",
+    opacity: disabled && !preview ? 0.6 : 1,
+  };
+  if (theme.buttonStyle === "outline") {
+    return (
+      <button
+        type={preview ? "button" : "submit"}
+        disabled={disabled}
+        style={{
+          ...base,
+          background: "transparent",
+          color: theme.colors.button,
+          border: `2px solid ${theme.colors.button}`,
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+  if (theme.buttonStyle === "soft") {
+    return (
+      <button
+        type={preview ? "button" : "submit"}
+        disabled={disabled}
+        style={{
+          ...base,
+          background: `color-mix(in srgb, ${theme.colors.button} 16%, ${theme.colors.card})`,
+          color: theme.colors.button,
+          border: `1px solid ${theme.colors.button}`,
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <button
+      type={preview ? "button" : "submit"}
+      disabled={disabled}
+      style={{
+        ...base,
+        background: theme.colors.button,
+        color: theme.colors.buttonText,
+        border: "0",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -161,38 +359,91 @@ type FieldControlProps = {
   value: unknown;
   error?: string;
   disabled?: boolean;
+  theme: FormTheme;
+  selected?: boolean;
+  number?: number;
+  onSelect?: () => void;
   onChange: (value: unknown) => void;
 };
 
-function FieldControl({ field, value, error, disabled, onChange }: FieldControlProps) {
+function FieldControl({
+  field,
+  value,
+  error,
+  disabled,
+  theme,
+  selected,
+  number,
+  onSelect,
+  onChange,
+}: FieldControlProps) {
   const inputId = `field-${field.id}`;
-  const common =
-    "mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+  const controlStyle: CSSProperties = {
+    marginTop: "0.25rem",
+    width: "100%",
+    borderRadius: inputRadius(theme.radius),
+    border: `1px solid ${theme.colors.border}`,
+    background: theme.colors.input,
+    color: theme.colors.text,
+    padding: sizePadding(theme.fieldSize, "field"),
+    fontSize: sizeFont(theme.fieldSize),
+    outline: "none",
+  };
 
   return (
-    <div>
-      <label htmlFor={inputId} className="block text-sm font-medium text-ink">
+    <div
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
+      style={{
+        textAlign: theme.align,
+        borderRadius: inputRadius(theme.radius),
+        outline: selected ? `2px solid ${theme.colors.button}` : undefined,
+        outlineOffset: selected ? 4 : undefined,
+        background: selected ? `color-mix(in srgb, ${theme.colors.button} 8%, transparent)` : undefined,
+        padding: selected ? "0.5rem" : undefined,
+        cursor: onSelect ? "pointer" : undefined,
+      }}
+    >
+      <label htmlFor={inputId} className="block text-sm font-medium" style={{ color: theme.colors.text }}>
+        {number != null ? <span style={{ color: theme.colors.muted }}>{number}. </span> : null}
         {field.label}
-        {field.required ? <span className="ml-1 text-danger">*</span> : null}
+        {field.required ? <span className="ml-1" style={{ color: "#b42318" }}>*</span> : null}
       </label>
-      {field.helpText ? <p className="mt-0.5 text-xs text-ink-muted">{field.helpText}</p> : null}
+      {field.helpText ? (
+        <p className="mt-0.5 text-xs" style={{ color: theme.colors.muted }}>
+          {field.helpText}
+        </p>
+      ) : null}
 
       {field.type === "textarea" ? (
         <textarea
           id={inputId}
-          className={common}
+          style={controlStyle}
           placeholder={field.placeholder}
           value={String(value ?? "")}
           disabled={disabled}
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
-          rows={4}
+          rows={theme.fieldSize === "lg" ? 5 : theme.fieldSize === "sm" ? 3 : 4}
         />
       ) : field.type === "select" ? (
         <select
           id={inputId}
-          className={common}
+          style={controlStyle}
           value={String(value ?? "")}
           disabled={disabled}
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">Select…</option>
@@ -203,9 +454,17 @@ function FieldControl({ field, value, error, disabled, onChange }: FieldControlP
           ))}
         </select>
       ) : field.type === "radio" ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
           {field.options.map((opt) => (
-            <label key={opt.id} className="flex items-center gap-2 text-sm">
+            <label
+              key={opt.id}
+              className="flex items-center gap-2 text-sm"
+              style={{
+                color: theme.colors.text,
+                justifyContent: theme.align === "center" ? "center" : "flex-start",
+                fontSize: sizeFont(theme.fieldSize),
+              }}
+            >
               <input
                 type="radio"
                 name={field.name}
@@ -219,18 +478,26 @@ function FieldControl({ field, value, error, disabled, onChange }: FieldControlP
           ))}
         </div>
       ) : field.type === "multiselect" || field.type === "checkbox" ? (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
           {field.options.map((opt) => {
-            const selected = Array.isArray(value) ? (value as string[]) : [];
+            const selectedOpts = Array.isArray(value) ? (value as string[]) : [];
             return (
-              <label key={opt.id} className="flex items-center gap-2 text-sm">
+              <label
+                key={opt.id}
+                className="flex items-center gap-2 text-sm"
+                style={{
+                  color: theme.colors.text,
+                  justifyContent: theme.align === "center" ? "center" : "flex-start",
+                  fontSize: sizeFont(theme.fieldSize),
+                }}
+              >
                 <input
                   type="checkbox"
-                  checked={selected.includes(opt.value)}
+                  checked={selectedOpts.includes(opt.value)}
                   disabled={disabled}
                   onChange={(e) => {
-                    if (e.target.checked) onChange([...selected, opt.value]);
-                    else onChange(selected.filter((v) => v !== opt.value));
+                    if (e.target.checked) onChange([...selectedOpts, opt.value]);
+                    else onChange(selectedOpts.filter((v) => v !== opt.value));
                   }}
                 />
                 {opt.label}
@@ -241,7 +508,7 @@ function FieldControl({ field, value, error, disabled, onChange }: FieldControlP
       ) : (
         <input
           id={inputId}
-          className={common}
+          style={controlStyle}
           type={
             field.type === "email"
               ? "email"
@@ -254,11 +521,12 @@ function FieldControl({ field, value, error, disabled, onChange }: FieldControlP
           placeholder={field.placeholder}
           value={value === undefined || value === null ? "" : String(value)}
           disabled={disabled}
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => onChange(e.target.value)}
         />
       )}
 
-      {error ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+      {error ? <p className="mt-1 text-xs" style={{ color: "#b42318" }}>{error}</p> : null}
     </div>
   );
 }

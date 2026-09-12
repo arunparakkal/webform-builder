@@ -165,3 +165,23 @@ describe("emptyFormDefinition", () => {
     expect(formDefinitionSchema.safeParse(draft).success).toBe(true);
   });
 });
+
+describe("form theme", () => {
+  it("accepts definitions without a theme (older published forms)", () => {
+    expect(formDefinitionSchema.safeParse(baseDefinition).success).toBe(true);
+  });
+
+  it("accepts a valid theme", () => {
+    const withTheme = emptyFormDefinition("Themed");
+    expect(formDefinitionSchema.safeParse(withTheme).success).toBe(true);
+  });
+
+  it("rejects invalid theme colors", () => {
+    const draft = emptyFormDefinition("Bad theme");
+    draft.theme = {
+      ...draft.theme!,
+      colors: { ...draft.theme!.colors, button: "green" },
+    };
+    expect(formDefinitionSchema.safeParse(draft).success).toBe(false);
+  });
+});

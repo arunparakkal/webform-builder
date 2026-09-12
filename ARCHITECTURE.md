@@ -386,7 +386,8 @@ Publish is one database transaction: insert `form_versions`, set `published_vers
 - SQS or Kafka as the durable ingest bus (instead of Redis/BullMQ)
 - Postgres partitioning of `form_submissions`, read replicas
 - Async export to object storage for multi-million-row forms
-- JS embed SDK / iframe for customer websites
 - Billing, teams, audit log, multi-region
+
+Built in this repo (beyond the original slice): JWT auth for the dashboard, and publish-time iframe / JavaScript embed (`/f/:slug?embed=true`, `/embed.js`).
 
 The slice exists to prove the core loop and the invariants. The designed pieces are how this same contract would run on the public internet at high scale.

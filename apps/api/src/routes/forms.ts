@@ -25,9 +25,17 @@ const patchBody = z.object({
 
 export const formsRoutes: FastifyPluginAsync = async (app) => {
   app.post("/api/forms", async (request, reply) => {
-    const body = createBody.parse(request.body);
-    const form = await createForm(request.ownerId, body.title, body.slug);
-    return reply.code(201).send(form);
+    const parsed = createBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.flatten() });
+    }
+    try {
+      const form = await createForm(request.ownerId, parsed.data.title, parsed.data.slug);
+      return reply.code(201).send(form);
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 500).send({ error: e.message });
+    }
   });
 
   app.get("/api/forms", async (request) => {
@@ -61,7 +69,11 @@ export const formsRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch("/api/forms/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = patchBody.parse(request.body);
+    const parsed = patchBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.flatten() });
+    }
+    const body = parsed.data;
 
     const existing = await prisma.form.findFirst({
       where: { id, ownerId: request.ownerId },
@@ -74,6 +86,10 @@ export const formsRoutes: FastifyPluginAsync = async (app) => {
         title: body.title,
         slug: body.slug,
         draftDefinition: body.draftDefinition,
+      },
+      include: {
+        publishedVersion: true,
+        versions: { orderBy: { revision: "desc" }, take: 10 },
       },
     });
 

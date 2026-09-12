@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "@webform/form-schema": "*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -24,6 +26,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^3.2.4"
   }
 }

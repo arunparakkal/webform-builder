@@ -1,11 +1,15 @@
 import type { FormDefinition } from "@webform/form-schema";
+import { resolveFormTheme } from "@webform/form-schema";
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import { FormRenderer } from "../components/FormRenderer";
+import { FormRenderer, ThemedSuccess } from "../components/FormRenderer";
 
 export function PublicFormPage() {
   const { slug = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const embed = searchParams.get("embed") === "true";
+
   const [definition, setDefinition] = useState<FormDefinition | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +38,7 @@ export function PublicFormPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4">
+      <div className={embed ? "px-3 py-6 text-center" : "mx-auto flex min-h-screen max-w-xl items-center justify-center px-4"}>
         <p className="text-sm text-ink-muted">Loading form…</p>
       </div>
     );
@@ -42,7 +46,7 @@ export function PublicFormPage() {
 
   if (error || !definition) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4">
+      <div className={embed ? "px-3 py-6" : "mx-auto flex min-h-screen max-w-xl items-center justify-center px-4"}>
         <div className="rounded-xl border border-line bg-surface p-6 text-center">
           <h1 className="font-display text-2xl font-semibold">Form unavailable</h1>
           <p className="mt-2 text-sm text-ink-muted">{error ?? "This form is not published."}</p>
@@ -51,38 +55,38 @@ export function PublicFormPage() {
     );
   }
 
+  const theme = resolveFormTheme(definition.theme);
+
   if (success) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4">
-        <div className="w-full rounded-xl border border-line bg-surface p-8 text-center shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-ink-muted">Webform</p>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight">Submitted</h1>
-          <p className="mt-3 text-ink-muted">{success}</p>
-        </div>
+      <div className={embed ? "" : "min-h-screen"} style={{ background: theme.colors.page }}>
+        <ThemedSuccess theme={theme} message={success} compact={embed} />
       </div>
     );
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-xl px-4 py-12">
-      <div className="mb-4 flex items-baseline justify-between text-xs text-ink-muted">
-        <span className="font-display text-sm font-medium text-ink">Webform</span>
-        {revision != null ? <span>Revision {revision}</span> : null}
-      </div>
-      <div className="rounded-xl border border-line bg-surface p-6 shadow-sm sm:p-8">
-        <FormRenderer
-          definition={definition}
-          showHoneypot
-          onSubmit={async (payload, website) => {
-            await api.submitPublicForm(slug, {
-              payload,
-              website,
-              idempotencyKey: crypto.randomUUID(),
-            });
-            setSuccess(definition.settings.successMessage);
-          }}
-        />
-      </div>
+    <div className={embed ? "" : "min-h-screen"} style={{ background: theme.colors.page }}>
+      {!embed ? (
+        <div className="mx-auto flex max-w-xl items-baseline justify-between px-4 pt-6 text-xs" style={{ color: theme.colors.muted }}>
+          <span>Webform</span>
+          {revision != null ? <span>Revision {revision}</span> : null}
+        </div>
+      ) : null}
+      <FormRenderer
+        definition={definition}
+        framed
+        compactFrame={embed}
+        showHoneypot
+        onSubmit={async (payload, website) => {
+          await api.submitPublicForm(slug, {
+            payload,
+            website,
+            idempotencyKey: crypto.randomUUID(),
+          });
+          setSuccess(definition.settings.successMessage);
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,34 @@
 import { z } from "zod";
 import { FIELD_TYPES } from "./types.js";
 
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a hex value like #0f6e56");
+
+export const formThemeSchema = z.object({
+  presetId: z.string().min(1),
+  colors: z.object({
+    page: hexColor,
+    card: hexColor,
+    title: hexColor,
+    text: hexColor,
+    muted: hexColor,
+    border: hexColor,
+    input: hexColor,
+    button: hexColor,
+    buttonText: hexColor,
+  }),
+  font: z.enum(["sans", "serif", "rounded"]),
+  align: z.enum(["left", "center"]),
+  radius: z.enum(["none", "md", "xl"]),
+  density: z.enum(["compact", "comfortable"]),
+  fieldSize: z.enum(["sm", "md", "lg"]).default("md"),
+  buttonSize: z.enum(["sm", "md", "lg"]).default("md"),
+  buttonWidth: z.enum(["auto", "full"]).default("auto"),
+  buttonStyle: z.enum(["filled", "outline", "soft"]),
+  showQuestionNumbers: z.boolean(),
+  cardShadow: z.boolean(),
+});
+
+
 const fieldNameSchema = z
   .string()
   .min(1)
@@ -84,6 +112,7 @@ export const formDefinitionSchema = z
       submitLabel: z.string().min(1),
       successMessage: z.string().min(1),
     }),
+    theme: formThemeSchema.optional(),
     fields: z.array(formFieldSchema),
   })
   .superRefine((definition, ctx) => {

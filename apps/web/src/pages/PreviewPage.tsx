@@ -48,8 +48,8 @@ export function PreviewPage() {
           <p className="text-sm text-ink-muted">Draft definition (not the published version)</p>
         </div>
       </div>
-      <div className="rounded-xl border border-line bg-surface p-6 shadow-sm">
-        <FormRenderer definition={definition} />
+      <div className="overflow-hidden rounded-xl border border-line">
+        <FormRenderer definition={definition} framed compactFrame />
       </div>
     </div>
   );

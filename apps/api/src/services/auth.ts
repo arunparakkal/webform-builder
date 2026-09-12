@@ -1,4 +1,6 @@
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "@webform/db";
 import { z } from "zod";
@@ -30,6 +32,10 @@ export const signupSchema = z
 export const signinSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
   password: z.string().min(1, "Password is required"),
+});
+
+export const supabaseAuthSchema = z.object({
+  accessToken: z.string().min(1, "Supabase access token is required"),
 });
 
 export type AuthUser = {
@@ -100,6 +106,74 @@ export async function authenticateUser(email: string, password: string) {
     throw Object.assign(new Error("Invalid email or password"), { statusCode: 401 });
   }
   return { id: user.id, email: user.email, name: user.name };
+}
+
+async function upsertUserFromOAuth(email: string, name: string | null) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    if (!existing.name && name) {
+      return prisma.user.update({
+        where: { id: existing.id },
+        data: { name },
+        select: { id: true, email: true, name: true },
+      });
+    }
+    return { id: existing.id, email: existing.email, name: existing.name };
+  }
+
+  const passwordHash = await hashPassword(randomBytes(32).toString("hex"));
+  return prisma.user.create({
+    data: {
+      email,
+      name,
+      passwordHash,
+    },
+    select: { id: true, email: true, name: true },
+  });
+}
+
+/**
+ * Verify a Supabase access token, then map to (or create) a Prisma app user.
+ * Keeps existing form ownership on our JWT / ownerId model.
+ */
+export async function authenticateWithSupabase(
+  accessToken: string,
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+) {
+  if (!supabaseUrl.trim() || !supabaseAnonKey.trim()) {
+    throw Object.assign(new Error("Supabase auth is not configured on the server"), {
+      statusCode: 503,
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user) {
+    throw Object.assign(new Error("Invalid or expired Supabase session"), { statusCode: 401 });
+  }
+
+  const email = data.user.email?.toLowerCase() ?? null;
+  if (!email) {
+    throw Object.assign(new Error("A verified email is required from Supabase"), {
+      statusCode: 400,
+    });
+  }
+
+  const meta = data.user.user_metadata ?? {};
+  const name =
+    (typeof meta.full_name === "string" && meta.full_name) ||
+    (typeof meta.name === "string" && meta.name) ||
+    null;
+
+  return upsertUserFromOAuth(email, name);
 }
 
 export async function ensureDemoOwner(email: string, password: string) {

@@ -5,17 +5,47 @@ import {
 } from "@webform/form-schema";
 import { prisma } from "@webform/db";
 
+function isUniqueViolation(err: unknown): boolean {
+  return Boolean(
+    err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "P2002",
+  );
+}
+
 export async function createForm(ownerId: string, title: string, slug: string) {
-  const draft = emptyFormDefinition(title);
-  return prisma.form.create({
-    data: {
-      ownerId,
-      title,
-      slug,
-      status: "draft",
-      draftDefinition: draft,
-    },
+  const taken = await prisma.form.findUnique({
+    where: { slug },
+    select: { id: true },
   });
+  if (taken) {
+    throw Object.assign(
+      new Error(`Slug "${slug}" is already taken. Choose a different slug.`),
+      { statusCode: 409 },
+    );
+  }
+
+  const draft = emptyFormDefinition(title);
+  try {
+    return await prisma.form.create({
+      data: {
+        ownerId,
+        title,
+        slug,
+        status: "draft",
+        draftDefinition: draft,
+      },
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      throw Object.assign(
+        new Error(`Slug "${slug}" is already taken. Choose a different slug.`),
+        { statusCode: 409 },
+      );
+    }
+    throw err;
+  }
 }
 
 export async function publishForm(formId: string, ownerId: string) {

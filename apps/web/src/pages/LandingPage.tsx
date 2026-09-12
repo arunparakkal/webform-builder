@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Architecture } from "../landing/Architecture";
-import { Features } from "../landing/Features";
+import { Features, LogoCloud } from "../landing/Features";
 import { FinalCta } from "../landing/FinalCta";
 import { Hero } from "../landing/Hero";
 import { HowItWorks } from "../landing/HowItWorks";
@@ -14,9 +14,9 @@ import { Versioning } from "../landing/Versioning";
 
 export function LandingPage() {
   useEffect(() => {
-    document.title = "Webform Builder | Build, Publish, and Manage Forms";
+    document.title = "FormBuilder | The simplest way to create powerful forms";
     const desc =
-      "Design dynamic forms, publish immutable versions, and collect reliable submissions with Webform Builder.";
+      "Design, publish, and embed beautiful forms. Versioned publishing, validated submissions, and an inbox your team can trust.";
     let meta = document.querySelector('meta[name="description"]');
     if (!meta) {
       meta = document.createElement("meta");
@@ -27,10 +27,11 @@ export function LandingPage() {
   }, []);
 
   return (
-    <div id="top" className="min-h-screen bg-transparent">
+    <div id="top" className="min-h-screen bg-white text-[#0B1F44]">
       <LandingNav />
       <main>
         <Hero />
+        <LogoCloud />
         <Features />
         <HowItWorks />
         <Versioning />
@@ -39,7 +40,9 @@ export function LandingPage() {
         <PublicFormPreview />
         <InboxPreview />
         <TechTrust />
-        <FinalCta />
+        <div id="resources">
+          <FinalCta />
+        </div>
       </main>
       <LandingFooter />
     </div>

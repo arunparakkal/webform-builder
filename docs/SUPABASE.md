@@ -30,6 +30,8 @@ Edit these files on your machine (they are gitignored):
 
 Set the same `DATABASE_URL` in both. Keep `REDIS_URL` for later (Docker Redis).
 
+For **Google sign-in**, also see [GOOGLE_SUPABASE_AUTH.md](./GOOGLE_SUPABASE_AUTH.md).
+
 ## 4. Apply schema
 
 From the repo root:

@@ -15,22 +15,45 @@ export type CachedPublishedForm = {
   definition: FormDefinition;
 };
 
+async function withRedisTimeout<T>(promise: Promise<T>, ms = 2000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Redis timed out")), ms);
+    }),
+  ]);
+}
+
 export async function getCachedPublished(
   redis: Redis,
   slug: string,
 ): Promise<CachedPublishedForm | null> {
-  const raw = await redis.get(publishedCacheKey(slug));
-  if (!raw) return null;
-  return JSON.parse(raw) as CachedPublishedForm;
+  try {
+    const raw = await withRedisTimeout(redis.get(publishedCacheKey(slug)));
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedPublishedForm;
+  } catch {
+    return null;
+  }
 }
 
 export async function setCachedPublished(
   redis: Redis,
   data: CachedPublishedForm,
 ): Promise<void> {
-  await redis.set(publishedCacheKey(data.slug), JSON.stringify(data), "EX", TTL_SECONDS);
+  try {
+    await withRedisTimeout(
+      redis.set(publishedCacheKey(data.slug), JSON.stringify(data), "EX", TTL_SECONDS),
+    );
+  } catch {
+    // Cache is optional — Postgres remains source of truth.
+  }
 }
 
 export async function invalidatePublishedCache(redis: Redis, slug: string): Promise<void> {
-  await redis.del(publishedCacheKey(slug));
+  try {
+    await withRedisTimeout(redis.del(publishedCacheKey(slug)));
+  } catch {
+    // Publish must still succeed if Redis is down; public reads can fall back to Postgres.
+  }
 }

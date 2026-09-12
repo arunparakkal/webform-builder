@@ -12,7 +12,7 @@ const steps = [
   {
     n: "03",
     title: "Share",
-    body: "Use the public URL (/f/:slug). Embed via iframe is supported as a documented next step.",
+    body: "Share the public URL (/f/:slug) or copy iframe / JavaScript embed code from the editor.",
   },
   {
     n: "04",

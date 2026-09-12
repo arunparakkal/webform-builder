@@ -36,7 +36,9 @@ GitHub: https://github.com/arunparakkal/webform-builder
 
 **Core assessment product path works:** create → publish → public submit → store → inbox.
 
-**Not done (optional):** full Docker one-command for all services, cloud deploy, embed SDK.
+**Not done (optional):** full Docker one-command for all services, cloud deploy.
+
+**Embed (built):** after publish, Share and Embed shows public URL, iframe code (`?embed=true`), and JS loader (`/embed.js`).
 
 **Auth (built):** signup / signin with Zod validation, bcrypt password hashes, JWT sessions. Dashboard (`/app`) and form routes require a signed-in user; public `/f/:slug` stays open.
 

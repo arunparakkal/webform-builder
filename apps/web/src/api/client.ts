@@ -71,9 +71,13 @@ function formatApiError(body: { error?: unknown }): string {
 
 async function request<T>(path: string, init?: RequestInit & { auth?: boolean }): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(init?.headers as Record<string, string> | undefined),
   };
+
+  // Fastify rejects Content-Type: application/json with an empty body (e.g. Publish POST).
+  if (init?.body !== undefined && init.body !== null) {
+    headers["Content-Type"] = "application/json";
+  }
 
   const useAuth = init?.auth !== false;
   const token = getAuthToken();
@@ -123,6 +127,13 @@ export const api = {
     request<AuthResponse>("/api/auth/signin", {
       method: "POST",
       body: JSON.stringify(body),
+      auth: false,
+    }),
+
+  supabaseAuth: (accessToken: string) =>
+    request<AuthResponse>("/api/auth/supabase", {
+      method: "POST",
+      body: JSON.stringify({ accessToken }),
       auth: false,
     }),
 

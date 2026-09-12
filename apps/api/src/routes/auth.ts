@@ -1,10 +1,12 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import {
   authenticateUser,
+  authenticateWithSupabase,
   createUser,
   signAccessToken,
   signinSchema,
   signupSchema,
+  supabaseAuthSchema,
   verifyAccessToken,
 } from "../services/auth.js";
 import { prisma } from "@webform/db";
@@ -52,6 +54,26 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     }
     try {
       const user = await authenticateUser(parsed.data.email, parsed.data.password);
+      const token = await signAccessToken(user, app.env.JWT_SECRET);
+      return reply.send({ token, user });
+    } catch (err) {
+      const e = err as Error & { statusCode?: number };
+      return reply.code(e.statusCode ?? 500).send({ error: e.message });
+    }
+  });
+
+  /** Exchange a Supabase session access token for this app's JWT. */
+  app.post("/api/auth/supabase", async (request, reply) => {
+    const parsed = supabaseAuthSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.flatten() });
+    }
+    try {
+      const user = await authenticateWithSupabase(
+        parsed.data.accessToken,
+        app.env.SUPABASE_URL,
+        app.env.SUPABASE_ANON_KEY,
+      );
       const token = await signAccessToken(user, app.env.JWT_SECRET);
       return reply.send({ token, user });
     } catch (err) {

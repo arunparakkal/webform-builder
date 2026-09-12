@@ -9,9 +9,11 @@
     "db:generate": "npm run generate -w @webform/db",
     "db:migrate": "npm run migrate -w @webform/db",
     "db:up": "docker compose up -d postgres",
-    "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api",
+    "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api && npm run test -w @webform/web",
     "test:form-schema": "npm run test -w @webform/form-schema",
     "test:api": "npm run test -w @webform/api",
+    "test:web": "npm run test -w @webform/web",
+
     "dev:api": "npm run dev -w @webform/api",
     "dev:worker": "npm run dev -w @webform/worker",
     "dev:web": "npm run dev -w @webform/web",

@@ -47,6 +47,33 @@ export type FormField = {
   visibility: Visibility;
 };
 
+export type FormThemeColors = {
+  page: string;
+  card: string;
+  title: string;
+  text: string;
+  muted: string;
+  border: string;
+  input: string;
+  button: string;
+  buttonText: string;
+};
+
+export type FormTheme = {
+  presetId: string;
+  colors: FormThemeColors;
+  font: "sans" | "serif" | "rounded";
+  align: "left" | "center";
+  radius: "none" | "md" | "xl";
+  density: "compact" | "comfortable";
+  fieldSize: "sm" | "md" | "lg";
+  buttonSize: "sm" | "md" | "lg";
+  buttonWidth: "auto" | "full";
+  buttonStyle: "filled" | "outline" | "soft";
+  showQuestionNumbers: boolean;
+  cardShadow: boolean;
+};
+
 export type FormDefinitionV1 = {
   schemaVersion: 1;
   meta: {
@@ -57,6 +84,8 @@ export type FormDefinitionV1 = {
     submitLabel: string;
     successMessage: string;
   };
+  /** Optional visual theme. Older published forms omit this. */
+  theme?: FormTheme;
   fields: FormField[];
 };
 
