@@ -8,6 +8,7 @@
   "scripts": {
     "db:generate": "npm run generate -w @webform/db",
     "db:migrate": "npm run migrate -w @webform/db",
+    "db:migrate:deploy": "npm run migrate:deploy -w @webform/db",
     "db:up": "docker compose up -d postgres",
     "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api && npm run test -w @webform/web",
     "test:form-schema": "npm run test -w @webform/form-schema",

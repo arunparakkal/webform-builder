@@ -50,6 +50,18 @@ export type AuthResponse = {
   user: AuthUser;
 };
 
+/** Empty in local dev (Vite proxies `/api` → API). Set to Render URL in production. */
+function apiBaseUrl(): string {
+  const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ?? "";
+  return raw.replace(/\/$/, "");
+}
+
+function apiUrl(path: string): string {
+  const base = apiBaseUrl();
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalized}`;
+}
+
 function formatApiError(body: { error?: unknown }): string {
   const err = body.error;
   if (typeof err === "string") return err;
@@ -86,7 +98,7 @@ async function request<T>(path: string, init?: RequestInit & { auth?: boolean })
   }
 
   const { auth: _auth, ...fetchInit } = init ?? {};
-  const response = await fetch(path, {
+  const response = await fetch(apiUrl(path), {
     ...fetchInit,
     headers,
   });
@@ -178,7 +190,7 @@ export const api = {
 
   exportSubmissions: async (id: string) => {
     const token = getAuthToken();
-    const response = await fetch(`/api/forms/${id}/submissions/export`, {
+    const response = await fetch(apiUrl(`/api/forms/${id}/submissions/export`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (response.status === 401 && token) {

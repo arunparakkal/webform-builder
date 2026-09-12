@@ -7,9 +7,11 @@ Multi-tenant form builder: visual editor, immutable publish, public submit under
 - [MY_UNDERSTANDING.md](./MY_UNDERSTANDING.md) — simple overview of everything we built (good to paste into ChatGPT)
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design (primary deliverable)
 - [TRADEOFFS.md](./TRADEOFFS.md) — three key decisions
+- [docs/DEPLOY.md](./docs/DEPLOY.md) — Vercel + Render production deploy
 - [docs/SUPABASE.md](./docs/SUPABASE.md) — Postgres
 - [docs/REDIS.md](./docs/REDIS.md) — Redis without Docker
 - [docs/DOCKER.md](./docs/DOCKER.md) — optional Docker later
+- [docs/GOOGLE_SUPABASE_AUTH.md](./docs/GOOGLE_SUPABASE_AUTH.md) — Google sign-in
 
 ## Quick start (local)
 
