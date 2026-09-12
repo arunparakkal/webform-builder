@@ -18,6 +18,7 @@ import {
 type CreatedResult = {
   template: FormTemplate;
   formId: string;
+  ownerId: string;
   title: string;
   slug: string;
   revision: number;
@@ -57,6 +58,7 @@ export function TemplatesPage() {
       setResult({
         template: fresh,
         formId: created.id,
+        ownerId: published.ownerId ?? created.ownerId,
         title: fresh.title,
         slug: published.slug,
         revision: published.revision,
@@ -76,17 +78,23 @@ export function TemplatesPage() {
   }
 
   if (result) {
-    const url = origin ? publicFormUrl(origin, result.slug, false) : "";
+    const url = origin ? publicFormUrl(origin, result.ownerId, result.slug, false) : "";
     const iframeCode = origin
       ? buildIframeEmbedCode({
           origin,
+          ownerId: result.ownerId,
           slug: result.slug,
           title: result.title,
           iframeHeight: 650,
         })
       : "";
     const jsCode = origin
-      ? buildJavaScriptEmbedCode({ origin, slug: result.slug, title: result.title })
+      ? buildJavaScriptEmbedCode({
+          origin,
+          ownerId: result.ownerId,
+          slug: result.slug,
+          title: result.title,
+        })
       : "";
     const activeCode = embedTab === "iframe" ? iframeCode : jsCode;
 

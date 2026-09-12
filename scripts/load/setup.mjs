@@ -92,5 +92,6 @@ if (!publishRes.ok) {
 }
 
 const published = await publishRes.json();
-console.log(JSON.stringify({ slug, formId: form.id, ...published }, null, 2));
-console.log(`\nRun burst:\n  npm run load -- --slug=${slug} --concurrency=40 --requests=200`);
+console.log(JSON.stringify({ slug, formId: form.id, ownerId: published.ownerId ?? form.ownerId, ...published }, null, 2));
+const oid = published.ownerId ?? form.ownerId;
+console.log(`\nRun burst:\n  npm run load -- --ownerId=${oid} --slug=${slug} --concurrency=40 --requests=200`);

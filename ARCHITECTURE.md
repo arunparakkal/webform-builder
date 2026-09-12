@@ -97,7 +97,7 @@ Two version numbers are kept separate:
 
 ## 4. Public serving
 
-`GET /api/public/forms/:slug`
+`GET /api/public/forms/:ownerId/:slug`
 
 - Returns **only** the frozen published JSON (and metadata needed to render it).
 - 404 if the form has never been published.
@@ -125,7 +125,7 @@ sequenceDiagram
   participant Worker
   participant Postgres
 
-  User->>Fastify: POST /api/public/forms/:slug/submissions
+  User->>Fastify: POST /api/public/forms/:ownerId/:slug/submissions
   Fastify->>Redis: get published definition
   alt cache miss
     Fastify->>Postgres: load form_versions row
@@ -221,7 +221,7 @@ Form labels, help text, options, and submitted values are untrusted.
 - React renders them as text. No `dangerouslySetInnerHTML` for definition strings.
 - Closed field-type whitelist. No user HTML, no user JavaScript, no user regex (avoids ReDoS).
 - Zod `.strict()` on submissions.
-- Content-Security-Policy on public pages.
+- Content-Security-Policy on public pages (web headers); API responses use a restrictive CSP
 - Honeypot + per-form rate limits in the slice; CAPTCHA / bot fight designed at the edge.
 
 ---
@@ -353,8 +353,8 @@ Public:
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/public/forms/:slug` | Published definition only |
-| POST | `/api/public/forms/:slug/submissions` | Honeypot, rate limit, Zod, enqueue, 202 |
+| GET | `/api/public/forms/:ownerId/:slug` | Published definition only |
+| POST | `/api/public/forms/:ownerId/:slug/submissions` | Honeypot, rate limit, Zod, enqueue, 202 |
 
 Publish is one database transaction: insert `form_versions`, set `published_version_id`, set `status = published`, invalidate Redis cache.
 
@@ -388,6 +388,6 @@ Publish is one database transaction: insert `form_versions`, set `published_vers
 - Async export to object storage for multi-million-row forms
 - Billing, teams, audit log, multi-region
 
-Built in this repo (beyond the original slice): JWT auth for the dashboard, and publish-time iframe / JavaScript embed (`/f/:slug?embed=true`, `/embed.js`).
+Built in this repo (beyond the original slice): JWT auth for the dashboard, and publish-time iframe / JavaScript embed (`/f/:ownerId/:slug?embed=true`, `/embed.js`).
 
 The slice exists to prove the core loop and the invariants. The designed pieces are how this same contract would run on the public internet at high scale.

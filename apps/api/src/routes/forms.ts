@@ -44,6 +44,7 @@ export const formsRoutes: FastifyPluginAsync = async (app) => {
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
+        ownerId: true,
         title: true,
         slug: true,
         status: true,
@@ -80,29 +81,56 @@ export const formsRoutes: FastifyPluginAsync = async (app) => {
     });
     if (!existing) return reply.code(404).send({ error: "Form not found" });
 
-    const form = await prisma.form.update({
-      where: { id },
-      data: {
-        title: body.title,
-        slug: body.slug,
-        draftDefinition: body.draftDefinition,
-      },
-      include: {
-        publishedVersion: true,
-        versions: { orderBy: { revision: "desc" }, take: 10 },
-      },
-    });
+    if (body.slug && body.slug !== existing.slug) {
+      const clash = await prisma.form.findFirst({
+        where: { ownerId: request.ownerId, slug: body.slug, NOT: { id } },
+        select: { id: true },
+      });
+      if (clash) {
+        return reply.code(409).send({
+          error: `You already have a form with slug "${body.slug}". Choose a different slug.`,
+        });
+      }
+    }
 
-    return form;
+    try {
+      const form = await prisma.form.update({
+        where: { id },
+        data: {
+          title: body.title,
+          slug: body.slug,
+          draftDefinition: body.draftDefinition,
+        },
+        include: {
+          publishedVersion: true,
+          versions: { orderBy: { revision: "desc" }, take: 10 },
+        },
+      });
+
+      if (body.slug && body.slug !== existing.slug) {
+        await invalidatePublishedCache(app.redis, request.ownerId, existing.slug);
+      }
+
+      return form;
+    } catch (err) {
+      const e = err as { code?: string };
+      if (e.code === "P2002") {
+        return reply.code(409).send({
+          error: `You already have a form with slug "${body.slug}". Choose a different slug.`,
+        });
+      }
+      throw err;
+    }
   });
 
   app.post("/api/forms/:id/publish", async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
       const result = await publishForm(id, request.ownerId);
-      await invalidatePublishedCache(app.redis, result.form.slug);
+      await invalidatePublishedCache(app.redis, result.form.ownerId, result.form.slug);
       return reply.send({
         formId: result.form.id,
+        ownerId: result.form.ownerId,
         slug: result.form.slug,
         status: result.form.status,
         versionId: result.version.id,

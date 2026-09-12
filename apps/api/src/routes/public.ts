@@ -23,15 +23,22 @@ const submitBody = z.object({
   idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
+const ownerIdParam = z.string().uuid();
+const slugParam = z
+  .string()
+  .min(1)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+
 async function loadPublished(
+  ownerId: string,
   slug: string,
   redis: Redis,
 ): Promise<CachedPublishedForm | null> {
-  const cached = await getCachedPublished(redis, slug);
-  if (cached) return cached;
+  const cached = await getCachedPublished(redis, ownerId, slug);
+  if (cached?.ownerId === ownerId) return cached;
 
-  const form = await prisma.form.findUnique({
-    where: { slug },
+  const form = await prisma.form.findFirst({
+    where: { ownerId, slug },
     include: { publishedVersion: true },
   });
   if (!form?.publishedVersion) return null;
@@ -41,6 +48,7 @@ async function loadPublished(
   ) as FormDefinition;
   const data: CachedPublishedForm = {
     formId: form.id,
+    ownerId: form.ownerId,
     slug: form.slug,
     formVersionId: form.publishedVersion.id,
     revision: form.publishedVersion.revision,
@@ -58,12 +66,18 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     await queue.close();
   });
 
-  app.get("/api/public/forms/:slug", async (request, reply) => {
-    const { slug } = request.params as { slug: string };
-    const published = await loadPublished(slug, app.redis);
+  app.get("/api/public/forms/:ownerId/:slug", async (request, reply) => {
+    const ownerId = ownerIdParam.safeParse((request.params as { ownerId: string }).ownerId);
+    const slug = slugParam.safeParse((request.params as { slug: string }).slug);
+    if (!ownerId.success || !slug.success) {
+      return reply.code(400).send({ error: "Invalid owner or slug" });
+    }
+
+    const published = await loadPublished(ownerId.data, slug.data, app.redis);
     if (!published) return reply.code(404).send({ error: "Form not published" });
 
     return {
+      ownerId: published.ownerId,
       slug: published.slug,
       revision: published.revision,
       formVersionId: published.formVersionId,
@@ -71,8 +85,13 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  app.post("/api/public/forms/:slug/submissions", async (request, reply) => {
-    const { slug } = request.params as { slug: string };
+  app.post("/api/public/forms/:ownerId/:slug/submissions", async (request, reply) => {
+    const ownerId = ownerIdParam.safeParse((request.params as { ownerId: string }).ownerId);
+    const slug = slugParam.safeParse((request.params as { slug: string }).slug);
+    if (!ownerId.success || !slug.success) {
+      return reply.code(400).send({ error: "Invalid owner or slug" });
+    }
+
     const body = submitBody.safeParse(request.body);
     if (!body.success) {
       return reply.code(400).send({ error: body.error.flatten() });
@@ -82,16 +101,17 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(202).send({ accepted: true });
     }
 
-    const published = await loadPublished(slug, app.redis);
+    const published = await loadPublished(ownerId.data, slug.data, app.redis);
     if (!published) return reply.code(404).send({ error: "Form not published" });
 
     const ip = request.ip || "unknown";
-    const allowed = await allowRequest(
-      app.redis,
-      published.formId,
+    const allowed = await allowRequest(app.redis, {
+      formId: published.formId,
+      ownerId: published.ownerId,
       ip,
-      app.env.RATE_LIMIT_PER_MINUTE,
-    );
+      formLimitPerMinute: app.env.RATE_LIMIT_PER_MINUTE,
+      ownerLimitPerMinute: app.env.RATE_LIMIT_OWNER_PER_MINUTE,
+    });
     if (!allowed) {
       return reply.code(429).send({ error: "Rate limit exceeded" });
     }

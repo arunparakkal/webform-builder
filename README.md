@@ -56,19 +56,19 @@ npm run dev:web
 
 Open **http://localhost:5173** for the marketing landing page.  
 **Sign up** at `/signup` or **sign in** at `/signin`, then use **http://localhost:5173/app** (protected).  
-Public forms stay open at `/f/:slug` (no login).
+Public forms stay open at `/f/:ownerId/:slug` (no login).
 
 Demo seed user (after `npm run seed`): `owner@example.com` / `password123` (override via env).
 
-Flow: sign up → create form → add fields → save → publish → share/embed → open `/f/:slug` → submit → view submissions.
+Flow: sign up → create form → add fields → save → publish → share/embed → open `/f/:ownerId/:slug` → submit → view submissions.
 
 ## Embedding a published form
 
 1. Create a form, add fields, save the draft, then **Publish**.
 2. On the editor, open the **Share and Embed** panel (shown after publish).
 3. Copy either:
-   - **Public URL** — open `/f/:slug` directly
-   - **iframe code** — loads `/f/:slug?embed=true` (compact layout, no app chrome)
+   - **Public URL** — open `/f/:ownerId/:slug` directly
+   - **iframe code** — loads `/f/:ownerId/:slug?embed=true` (compact layout, no app chrome)
    - **JavaScript code** — loads `/embed.js`, which mounts an iframe into your target `div`
 4. Paste the snippet into the customer website.
 5. Submissions still use the existing public API → Zod validation → Redis/BullMQ → worker → Postgres → inbox.

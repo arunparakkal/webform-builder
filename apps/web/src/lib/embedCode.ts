@@ -1,4 +1,6 @@
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const OWNER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Keep only characters safe for HTML element ids derived from a slug. */
 export function safeEmbedTargetId(slug: string): string {
@@ -13,6 +15,10 @@ export function safeEmbedTargetId(slug: string): string {
 
 export function isSafeFormSlug(slug: string): boolean {
   return SLUG_PATTERN.test(slug);
+}
+
+export function isSafeOwnerId(ownerId: string): boolean {
+  return OWNER_ID_PATTERN.test(ownerId);
 }
 
 /** Escape text for use inside an HTML attribute value. */
@@ -32,13 +38,20 @@ export function getPublicWebOrigin(envUrl?: string | undefined, windowOrigin?: s
   return "";
 }
 
-export function publicFormUrl(origin: string, slug: string, embed = false): string {
-  const base = `${origin.replace(/\/$/, "")}/f/${slug}`;
+/** Public form path: /f/:ownerId/:slug (slug is unique per owner). */
+export function publicFormUrl(
+  origin: string,
+  ownerId: string,
+  slug: string,
+  embed = false,
+): string {
+  const base = `${origin.replace(/\/$/, "")}/f/${encodeURIComponent(ownerId)}/${encodeURIComponent(slug)}`;
   return embed ? `${base}?embed=true` : base;
 }
 
 export type EmbedSnippetInput = {
   origin: string;
+  ownerId: string;
   slug: string;
   title: string;
   iframeHeight?: number;
@@ -46,7 +59,7 @@ export type EmbedSnippetInput = {
 
 export function buildIframeEmbedCode(input: EmbedSnippetInput): string {
   const height = Math.min(Math.max(input.iframeHeight ?? 650, 200), 4000);
-  const src = publicFormUrl(input.origin, input.slug, true);
+  const src = publicFormUrl(input.origin, input.ownerId, input.slug, true);
   const title = escapeHtmlAttr(input.title || "Form");
   return [
     `<iframe`,
@@ -69,6 +82,7 @@ export function buildJavaScriptEmbedCode(input: EmbedSnippetInput): string {
     ``,
     `<script`,
     `  src="${escapeHtmlAttr(scriptSrc)}"`,
+    `  data-owner-id="${escapeHtmlAttr(input.ownerId)}"`,
     `  data-form-slug="${escapeHtmlAttr(input.slug)}"`,
     `  data-target="${escapeHtmlAttr(targetId)}">`,
     `</script>`,

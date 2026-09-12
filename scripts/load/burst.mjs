@@ -2,15 +2,16 @@
  * Burst load generator for the public submit path.
  *
  * Usage:
- *   npm run load -- --slug=newsletter --concurrency=50 --requests=200
+ *   npm run load -- --ownerId=<uuid> --slug=newsletter --concurrency=50 --requests=200
  *
- * Prerequisites: API + worker + Redis running; form published at that slug.
+ * Prerequisites: API + worker + Redis running; form published at that ownerId/slug.
  */
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
   options: {
     base: { type: "string", default: "http://127.0.0.1:3001" },
+    ownerId: { type: "string" },
     slug: { type: "string", default: "load-test" },
     concurrency: { type: "string", default: "40" },
     requests: { type: "string", default: "200" },
@@ -19,11 +20,19 @@ const { values } = parseArgs({
 });
 
 const base = (values.base ?? "http://127.0.0.1:3001").replace(/\/$/, "");
+const ownerId = values.ownerId;
 const slug = values.slug ?? "load-test";
 const concurrency = Number(values.concurrency ?? "40");
 const total = Number(values.requests ?? "200");
 const emailField = values.emailField ?? "email";
-const url = `${base}/api/public/forms/${encodeURIComponent(slug)}/submissions`;
+
+if (!ownerId) {
+  console.error("Missing --ownerId (UUID). Run `npm run load:setup` first and copy ownerId.");
+  process.exit(1);
+}
+
+const path = `/api/public/forms/${encodeURIComponent(ownerId)}/${encodeURIComponent(slug)}`;
+const url = `${base}${path}/submissions`;
 
 async function oneRequest(i) {
   const started = performance.now();
@@ -59,10 +68,10 @@ async function runPool() {
   return results;
 }
 
-const probe = await fetch(`${base}/api/public/forms/${encodeURIComponent(slug)}`);
+const probe = await fetch(`${base}${path}`);
 if (!probe.ok) {
   console.error(
-    `Form slug "${slug}" is not published (HTTP ${probe.status}). Publish a form first, then re-run.`,
+    `Form ${ownerId}/${slug} is not published (HTTP ${probe.status}). Publish a form first, then re-run.`,
   );
   process.exit(1);
 }

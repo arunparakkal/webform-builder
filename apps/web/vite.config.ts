@@ -7,11 +7,68 @@ import { defineConfig } from "vite";
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(rootDir, "../..");
 
+/** Public-page CSP (frame-ancestors * so customer embeds keep working). */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self' https: http://localhost:* ws://localhost:* wss:",
+  "frame-ancestors *",
+  "form-action 'self'",
+].join("; ");
+
+/** Vite HMR needs slightly looser script/connect rules in local dev. */
+const DEV_CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self' https: http://localhost:* ws://localhost:* wss:",
+  "frame-ancestors *",
+  "form-action 'self'",
+].join("; ");
+
+function applySecurityHeaders(
+  middlewares: {
+    use: (
+      fn: (
+        req: unknown,
+        res: { setHeader: (k: string, v: string) => void },
+        next: () => void,
+      ) => void,
+    ) => void;
+  },
+  policy: string,
+) {
+  middlewares.use((_req, res, next) => {
+    res.setHeader("Content-Security-Policy", policy);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
+}
+
 export default defineConfig({
   envDir: repoRoot,
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: "security-headers",
+      configureServer(server) {
+        applySecurityHeaders(server.middlewares, DEV_CONTENT_SECURITY_POLICY);
+      },
+      configurePreviewServer(server) {
+        applySecurityHeaders(server.middlewares, CONTENT_SECURITY_POLICY);
+      },
+    },
     {
       name: "serve-embed-js",
       configureServer(server) {

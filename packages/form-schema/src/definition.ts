@@ -26,7 +26,17 @@ export const formThemeSchema = z.object({
   buttonStyle: z.enum(["filled", "outline", "soft"]),
   showQuestionNumbers: z.boolean(),
   cardShadow: z.boolean(),
-  pageBackgroundImage: z.union([z.string().url(), z.literal("")]).optional(),
+  pageBackgroundImage: z
+    .union([
+      z.literal(""),
+      z
+        .string()
+        .url()
+        .refine((value) => value.startsWith("https://"), {
+          message: "Background image must be an https URL",
+        }),
+    ])
+    .optional(),
   pageBackgroundOverlay: z.string().max(120).optional(),
   cardStyle: z.enum(["solid", "glass", "flat"]).optional().default("solid"),
   inputStyle: z.enum(["box", "underline", "outline"]).optional().default("box"),

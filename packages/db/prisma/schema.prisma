@@ -31,7 +31,7 @@ model Form {
   owner  User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   title  String
-  slug   String     @unique
+  slug   String
   status FormStatus @default(draft)
 
   /// Pointer to the immutable live revision. Null until first publish.
@@ -47,6 +47,7 @@ model Form {
   versions    FormVersion[]     @relation("FormVersions")
   submissions FormSubmission[]
 
+  @@unique([ownerId, slug])
   @@index([ownerId])
   @@map("forms")
 }

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { Readable } from "node:stream";
 import { prisma } from "@webform/db";
 import {
   formDefinitionSchema,
@@ -14,11 +15,55 @@ const listQuery = z.object({
   revision: z.coerce.number().int().positive().optional(),
 });
 
+const exportQuery = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  revision: z.coerce.number().int().positive().optional(),
+});
+
+const EXPORT_BATCH = 500;
+
 function escapeCsv(value: string): string {
   if (/[",\n\r]/.test(value)) {
     return `"${value.replaceAll('"', '""')}"`;
   }
   return value;
+}
+
+function buildWhere(
+  formId: string,
+  query: {
+    from?: string;
+    to?: string;
+    revision?: number;
+    cursor?: string;
+  },
+) {
+  return {
+    formId,
+    ...(query.from || query.to
+      ? {
+          createdAt: {
+            ...(query.from ? { gte: new Date(query.from) } : {}),
+            ...(query.to ? { lte: new Date(query.to) } : {}),
+          },
+        }
+      : {}),
+    ...(query.revision ? { formVersion: { revision: query.revision } } : {}),
+    ...(query.cursor
+      ? (() => {
+          const idx = query.cursor.lastIndexOf("_");
+          const createdAt = new Date(query.cursor.slice(0, idx));
+          const cursorId = query.cursor.slice(idx + 1);
+          return {
+            OR: [
+              { createdAt: { lt: createdAt } },
+              { createdAt, id: { lt: cursorId } },
+            ],
+          };
+        })()
+      : {}),
+  };
 }
 
 export const submissionsRoutes: FastifyPluginAsync = async (app) => {
@@ -32,36 +77,8 @@ export const submissionsRoutes: FastifyPluginAsync = async (app) => {
     });
     if (!form) return reply.code(404).send({ error: "Form not found" });
 
-    const where = {
-      formId: id,
-      ...(query.from || query.to
-        ? {
-            createdAt: {
-              ...(query.from ? { gte: new Date(query.from) } : {}),
-              ...(query.to ? { lte: new Date(query.to) } : {}),
-            },
-          }
-        : {}),
-      ...(query.revision
-        ? { formVersion: { revision: query.revision } }
-        : {}),
-      ...(query.cursor
-        ? (() => {
-            const idx = query.cursor.lastIndexOf("_");
-            const createdAt = new Date(query.cursor.slice(0, idx));
-            const cursorId = query.cursor.slice(idx + 1);
-            return {
-              OR: [
-                { createdAt: { lt: createdAt } },
-                { createdAt, id: { lt: cursorId } },
-              ],
-            };
-          })()
-        : {}),
-    };
-
     const rows = await prisma.formSubmission.findMany({
-      where,
+      where: buildWhere(id, query),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: query.limit + 1,
       include: {
@@ -88,45 +105,65 @@ export const submissionsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get("/api/forms/:id/submissions/export", async (request, reply) => {
     const { id } = request.params as { id: string };
+    const query = exportQuery.parse(request.query);
+
     const form = await prisma.form.findFirst({
       where: { id, ownerId: request.ownerId },
       select: { id: true, title: true },
     });
     if (!form) return reply.code(404).send({ error: "Form not found" });
 
-    const rows = await prisma.formSubmission.findMany({
-      where: { formId: id },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 10_000,
-      include: { formVersion: true },
+    // Column set from versions (bounded), not from loading every submission.
+    const versions = await prisma.formVersion.findMany({
+      where: {
+        formId: id,
+        ...(query.revision ? { revision: query.revision } : {}),
+      },
+      select: { definition: true },
     });
-
     const nameSet = new Set<string>();
-    for (const row of rows) {
-      const def = formDefinitionSchema.parse(row.formVersion.definition) as FormDefinition;
+    for (const version of versions) {
+      const def = formDefinitionSchema.parse(version.definition) as FormDefinition;
       for (const field of def.fields) nameSet.add(field.name);
     }
     const columns = ["id", "revision", "created_at", ...Array.from(nameSet)];
 
-    const lines = [columns.map(escapeCsv).join(",")];
-    for (const row of rows) {
-      const payload = row.payload as Record<string, unknown>;
-      const values = columns.map((col) => {
-        if (col === "id") return escapeCsv(row.id);
-        if (col === "revision") return String(row.formVersion.revision);
-        if (col === "created_at") return escapeCsv(row.createdAt.toISOString());
-        const v = payload[col];
-        if (v === undefined || v === null) return "";
-        return escapeCsv(Array.isArray(v) ? v.join("|") : String(v));
-      });
-      lines.push(values.join(","));
+    const filename = `${form.title.replaceAll(/[^a-z0-9-_]+/gi, "_")}-submissions.csv`;
+    reply.header("content-type", "text/csv; charset=utf-8");
+    reply.header("content-disposition", `attachment; filename="${filename}"`);
+
+    async function* csvRows() {
+      yield `${columns.map(escapeCsv).join(",")}\n`;
+
+      let cursor: string | undefined;
+      for (;;) {
+        const batch = await prisma.formSubmission.findMany({
+          where: buildWhere(id, { ...query, cursor }),
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: EXPORT_BATCH,
+          include: { formVersion: { select: { revision: true } } },
+        });
+        if (batch.length === 0) break;
+
+        for (const row of batch) {
+          const payload = row.payload as Record<string, unknown>;
+          const values = columns.map((col) => {
+            if (col === "id") return escapeCsv(row.id);
+            if (col === "revision") return String(row.formVersion.revision);
+            if (col === "created_at") return escapeCsv(row.createdAt.toISOString());
+            const v = payload[col];
+            if (v === undefined || v === null) return "";
+            return escapeCsv(Array.isArray(v) ? v.join("|") : String(v));
+          });
+          yield `${values.join(",")}\n`;
+        }
+
+        if (batch.length < EXPORT_BATCH) break;
+        const last = batch[batch.length - 1]!;
+        cursor = `${last.createdAt.toISOString()}_${last.id}`;
+      }
     }
 
-    reply.header("content-type", "text/csv; charset=utf-8");
-    reply.header(
-      "content-disposition",
-      `attachment; filename="${form.title.replaceAll(/[^a-z0-9-_]+/gi, "_")}-submissions.csv"`,
-    );
-    return reply.send(lines.join("\n"));
+    return reply.send(Readable.from(csvRows()));
   });
 };

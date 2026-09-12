@@ -3,21 +3,41 @@ import { Link, useParams } from "react-router-dom";
 import { api, type FormDetail, type SubmissionItem } from "../api/client";
 import { formatDate } from "../lib/fields";
 
+/** Convert datetime-local value to ISO for the API (`z.string().datetime()`). */
+function localToIso(value: string): string | undefined {
+  if (!value.trim()) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
 export function SubmissionsPage() {
   const { id = "" } = useParams();
   const [form, setForm] = useState<FormDetail | null>(null);
   const [items, setItems] = useState<SubmissionItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [revisionFilter, setRevisionFilter] = useState<string>("");
+  const [fromLocal, setFromLocal] = useState("");
+  const [toLocal, setToLocal] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load(opts?: { cursor?: string; append?: boolean; revision?: number }) {
+  function filterParams() {
+    return {
+      revision: revisionFilter ? Number(revisionFilter) : undefined,
+      from: localToIso(fromLocal),
+      to: localToIso(toLocal),
+    };
+  }
+
+  async function load(opts?: { cursor?: string; append?: boolean }) {
+    const filters = filterParams();
     const response = await api.listSubmissions(id, {
       cursor: opts?.cursor,
       limit: 20,
-      revision: opts?.revision,
+      ...filters,
     });
     setItems((prev) => (opts?.append ? [...prev, ...response.items] : response.items));
     setNextCursor(response.nextCursor);
@@ -28,12 +48,11 @@ export function SubmissionsPage() {
     (async () => {
       try {
         setLoading(true);
+        setError(null);
         const detail = await api.getForm(id);
         if (cancelled) return;
         setForm(detail);
-        await load({
-          revision: revisionFilter ? Number(revisionFilter) : undefined,
-        });
+        await load();
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load submissions");
       } finally {
@@ -43,17 +62,15 @@ export function SubmissionsPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, revisionFilter]);
+    // Reload when filters change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, revisionFilter, fromLocal, toLocal]);
 
   async function handleLoadMore() {
     if (!nextCursor) return;
     try {
       setLoadingMore(true);
-      await load({
-        cursor: nextCursor,
-        append: true,
-        revision: revisionFilter ? Number(revisionFilter) : undefined,
-      });
+      await load({ cursor: nextCursor, append: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load more");
     } finally {
@@ -61,7 +78,26 @@ export function SubmissionsPage() {
     }
   }
 
+  async function handleExport() {
+    try {
+      setExporting(true);
+      setError(null);
+      const blob = await api.exportSubmissions(id, filterParams());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `submissions-${id}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const revisions = form?.versions ?? [];
+  const inputClass = "mt-1 block w-full rounded-md border border-line bg-surface px-3 py-2 text-sm";
 
   return (
     <div className="space-y-6">
@@ -78,30 +114,19 @@ export function SubmissionsPage() {
         </div>
         <button
           type="button"
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-          onClick={async () => {
-            try {
-              const blob = await api.exportSubmissions(id);
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `submissions-${id}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Export failed");
-            }
-          }}
+          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-60"
+          disabled={exporting}
+          onClick={() => void handleExport()}
         >
-          Export CSV
+          {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4">
         <label className="block text-sm">
           <span className="text-ink-muted">Filter by revision</span>
           <select
-            className="mt-1 block rounded-md border border-line bg-surface px-3 py-2"
+            className={inputClass}
             value={revisionFilter}
             onChange={(e) => setRevisionFilter(e.target.value)}
           >
@@ -113,6 +138,37 @@ export function SubmissionsPage() {
             ))}
           </select>
         </label>
+        <label className="block text-sm">
+          <span className="text-ink-muted">From</span>
+          <input
+            type="datetime-local"
+            className={inputClass}
+            value={fromLocal}
+            onChange={(e) => setFromLocal(e.target.value)}
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-ink-muted">To</span>
+          <input
+            type="datetime-local"
+            className={inputClass}
+            value={toLocal}
+            onChange={(e) => setToLocal(e.target.value)}
+          />
+        </label>
+        {fromLocal || toLocal || revisionFilter ? (
+          <button
+            type="button"
+            className="rounded-md border border-line px-3 py-2 text-sm text-ink-muted hover:bg-paper-2"
+            onClick={() => {
+              setRevisionFilter("");
+              setFromLocal("");
+              setToLocal("");
+            }}
+          >
+            Clear filters
+          </button>
+        ) : null}
       </div>
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
@@ -162,7 +218,7 @@ export function SubmissionsPage() {
       {nextCursor ? (
         <button
           type="button"
-          onClick={handleLoadMore}
+          onClick={() => void handleLoadMore()}
           disabled={loadingMore}
           className="rounded-md border border-line bg-surface px-4 py-2 text-sm hover:bg-paper-2 disabled:opacity-60"
         >

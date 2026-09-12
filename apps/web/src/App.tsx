@@ -20,7 +20,7 @@ export default function App() {
       <Route path="/signin" element={<SignInPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
-      <Route path="/f/:slug" element={<PublicFormPage />} />
+      <Route path="/f/:ownerId/:slug" element={<PublicFormPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/app" element={<FormsListPage />} />

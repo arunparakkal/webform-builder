@@ -3,6 +3,7 @@ import { getAuthToken, useAuthStore, type AuthUser } from "../store/authStore";
 
 export type FormSummary = {
   id: string;
+  ownerId: string;
   title: string;
   slug: string;
   status: string;
@@ -39,6 +40,7 @@ export type SubmissionsResponse = {
 };
 
 export type PublishedForm = {
+  ownerId: string;
   slug: string;
   revision: number;
   formVersionId: string;
@@ -173,24 +175,38 @@ export const api = {
   publishForm: (id: string) =>
     request<{
       formId: string;
+      ownerId: string;
       slug: string;
       status: string;
       versionId: string;
       revision: number;
     }>(`/api/forms/${id}/publish`, { method: "POST" }),
 
-  listSubmissions: (id: string, params: { cursor?: string; limit?: number; revision?: number }) => {
+  listSubmissions: (
+    id: string,
+    params: { cursor?: string; limit?: number; revision?: number; from?: string; to?: string },
+  ) => {
     const query = new URLSearchParams();
     if (params.cursor) query.set("cursor", params.cursor);
     if (params.limit) query.set("limit", String(params.limit));
     if (params.revision) query.set("revision", String(params.revision));
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
     const qs = query.toString();
     return request<SubmissionsResponse>(`/api/forms/${id}/submissions${qs ? `?${qs}` : ""}`);
   },
 
-  exportSubmissions: async (id: string) => {
+  exportSubmissions: async (
+    id: string,
+    params?: { revision?: number; from?: string; to?: string },
+  ) => {
     const token = getAuthToken();
-    const response = await fetch(apiUrl(`/api/forms/${id}/submissions/export`), {
+    const query = new URLSearchParams();
+    if (params?.revision) query.set("revision", String(params.revision));
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const qs = query.toString();
+    const response = await fetch(apiUrl(`/api/forms/${id}/submissions/export${qs ? `?${qs}` : ""}`), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (response.status === 401 && token) {
@@ -202,15 +218,19 @@ export const api = {
     return response.blob();
   },
 
-  getPublishedForm: (slug: string) =>
-    request<PublishedForm>(`/api/public/forms/${slug}`, { auth: false }),
+  getPublishedForm: (ownerId: string, slug: string) =>
+    request<PublishedForm>(
+      `/api/public/forms/${encodeURIComponent(ownerId)}/${encodeURIComponent(slug)}`,
+      { auth: false },
+    ),
 
   submitPublicForm: (
+    ownerId: string,
     slug: string,
     body: { payload: Record<string, unknown>; website?: string; idempotencyKey?: string },
   ) =>
     request<{ accepted: boolean; idempotencyKey?: string; formVersionId?: string }>(
-      `/api/public/forms/${slug}/submissions`,
+      `/api/public/forms/${encodeURIComponent(ownerId)}/${encodeURIComponent(slug)}/submissions`,
       {
         method: "POST",
         body: JSON.stringify(body),

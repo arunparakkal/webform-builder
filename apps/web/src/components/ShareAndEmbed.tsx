@@ -5,17 +5,19 @@ import {
   buildJavaScriptEmbedCode,
   getPublicWebOrigin,
   isSafeFormSlug,
+  isSafeOwnerId,
   publicFormUrl,
 } from "../lib/embedCode";
 
 type Props = {
+  ownerId: string;
   slug: string;
   title: string;
   revision?: number;
   highlight?: boolean;
 };
 
-export function ShareAndEmbed({ slug, title, revision, highlight = false }: Props) {
+export function ShareAndEmbed({ ownerId, slug, title, revision, highlight = false }: Props) {
   const [iframeHeight, setIframeHeight] = useState(650);
 
   const origin = useMemo(
@@ -27,16 +29,16 @@ export function ShareAndEmbed({ slug, title, revision, highlight = false }: Prop
     [],
   );
 
-  const safeSlug = isSafeFormSlug(slug);
-  const url = safeSlug && origin ? publicFormUrl(origin, slug, false) : "";
+  const safe = isSafeFormSlug(slug) && isSafeOwnerId(ownerId);
+  const url = safe && origin ? publicFormUrl(origin, ownerId, slug, false) : "";
   const iframeCode =
-    safeSlug && origin
-      ? buildIframeEmbedCode({ origin, slug, title, iframeHeight })
+    safe && origin
+      ? buildIframeEmbedCode({ origin, ownerId, slug, title, iframeHeight })
       : "";
   const jsCode =
-    safeSlug && origin ? buildJavaScriptEmbedCode({ origin, slug, title }) : "";
+    safe && origin ? buildJavaScriptEmbedCode({ origin, ownerId, slug, title }) : "";
 
-  if (!safeSlug) {
+  if (!safe) {
     return (
       <div className="rounded-xl border border-line bg-surface p-5 text-sm text-ink-muted">
         Publish with a valid lowercase slug to generate share and embed codes.

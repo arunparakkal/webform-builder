@@ -71,7 +71,7 @@ export function CreateFormModal({
               Create new form
             </h2>
             <p className="mt-1 text-sm text-[#64748B]">
-              Give it a title and URL slug, then open the editor.
+              Give it a title and URL slug (unique for your account), then open the editor.
             </p>
           </div>
           <button
@@ -109,7 +109,7 @@ export function CreateFormModal({
             <span className="font-medium text-[#0B1F44]">Slug</span>
             <div className="mt-1.5 flex overflow-hidden rounded-xl border border-[#E5E7EB] focus-within:border-[#2563EB] focus-within:ring-2 focus-within:ring-[#2563EB]/20">
               <span className="flex items-center border-r border-[#E5E7EB] bg-[#F8FAFC] px-3 text-xs text-[#94A3B8]">
-                /f/
+                /f/…/
               </span>
               <input
                 id={slugId}

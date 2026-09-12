@@ -66,20 +66,27 @@ export function PublishSuccessPage() {
   }
 
   const revision = form.publishedVersion?.revision;
-  const safeSlug = isSafeFormSlug(form.slug);
-  const url = safeSlug && origin ? publicFormUrl(origin, form.slug, false) : "";
+  const safe =
+    isSafeFormSlug(form.slug) && Boolean(form.ownerId);
+  const url = safe && origin ? publicFormUrl(origin, form.ownerId, form.slug, false) : "";
   const iframeCode =
-    safeSlug && origin
+    safe && origin
       ? buildIframeEmbedCode({
           origin,
+          ownerId: form.ownerId,
           slug: form.slug,
           title: form.title,
           iframeHeight,
         })
       : "";
   const jsCode =
-    safeSlug && origin
-      ? buildJavaScriptEmbedCode({ origin, slug: form.slug, title: form.title })
+    safe && origin
+      ? buildJavaScriptEmbedCode({
+          origin,
+          ownerId: form.ownerId,
+          slug: form.slug,
+          title: form.title,
+        })
       : "";
   const activeCode = embedTab === "iframe" ? iframeCode : jsCode;
 

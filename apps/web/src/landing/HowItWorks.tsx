@@ -12,7 +12,7 @@ const steps = [
   {
     n: "03",
     title: "Share",
-    body: "Share the public URL (/f/:slug) or copy iframe / JavaScript embed code from the editor.",
+    body: "Share the public URL (/f/:ownerId/:slug) or copy iframe / JavaScript embed code from the editor.",
   },
   {
     n: "04",

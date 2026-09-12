@@ -31,6 +31,16 @@ export async function buildApp(env: Env, redis: Redis) {
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
+  app.addHook("onSend", async (_request, reply, payload) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    reply.header(
+      "Content-Security-Policy",
+      "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    );
+    return payload;
+  });
+
   app.get("/health", async () => ({ ok: true }));
 
   await app.register(authRoutes);

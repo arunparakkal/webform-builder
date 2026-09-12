@@ -44,6 +44,8 @@ const envSchema = z.object({
   DEMO_OWNER_EMAIL: z.string().email().default("owner@example.com"),
   DEMO_OWNER_PASSWORD: z.string().min(8).default("password123"),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().default(60),
+  /** Cap total public submits across all forms owned by one tenant per minute. */
+  RATE_LIMIT_OWNER_PER_MINUTE: z.coerce.number().default(180),
   SUPABASE_URL: z.string().optional().default(""),
   SUPABASE_ANON_KEY: z.string().optional().default(""),
 });

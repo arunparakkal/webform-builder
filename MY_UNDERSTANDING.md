@@ -12,7 +12,7 @@ A **multi-tenant webform builder**:
 
 - Design forms visually (fields, validation, show-if rules)
 - Save **draft**, then **publish** an immutable version
-- Share a **public URL** (`/f/:slug`)
+- Share a **public URL** (`/f/:ownerId/:slug`)
 - Collect submissions with **server-side validation**
 - View / export submissions
 - Survive **traffic bursts** via Redis queue (not writing Postgres on every HTTP request)
@@ -40,7 +40,7 @@ GitHub: https://github.com/arunparakkal/webform-builder
 
 **Embed (built):** after publish, Share and Embed shows public URL, iframe code (`?embed=true`), and JS loader (`/embed.js`).
 
-**Auth (built):** signup / signin with Zod validation, bcrypt password hashes, JWT sessions. Dashboard (`/app`) and form routes require a signed-in user; public `/f/:slug` stays open.
+**Auth (built):** signup / signin with Zod validation, bcrypt password hashes, JWT sessions. Dashboard (`/app`) and form routes require a signed-in user; public `/f/:ownerId/:slug` stays open.
 
 ---
 
@@ -87,8 +87,8 @@ scripts/load      → burst load test
 - Editing draft never changes old submissions
 
 ### Public serving & submit
-- `GET /api/public/forms/:slug` — published JSON
-- Public UI at `/f/:slug`
+- `GET /api/public/forms/:ownerId/:slug` — published JSON
+- Public UI at `/f/:ownerId/:slug`
 - Client validation + same show-if rules
 - Server re-validates with Zod from that revision
 - Honeypot field (`website`) + per-form Redis rate limit

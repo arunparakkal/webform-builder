@@ -15,13 +15,13 @@ function isUniqueViolation(err: unknown): boolean {
 }
 
 export async function createForm(ownerId: string, title: string, slug: string) {
-  const taken = await prisma.form.findUnique({
-    where: { slug },
+  const taken = await prisma.form.findFirst({
+    where: { ownerId, slug },
     select: { id: true },
   });
   if (taken) {
     throw Object.assign(
-      new Error(`Slug "${slug}" is already taken. Choose a different slug.`),
+      new Error(`You already have a form with slug "${slug}". Choose a different slug.`),
       { statusCode: 409 },
     );
   }
@@ -40,7 +40,7 @@ export async function createForm(ownerId: string, title: string, slug: string) {
   } catch (err) {
     if (isUniqueViolation(err)) {
       throw Object.assign(
-        new Error(`Slug "${slug}" is already taken. Choose a different slug.`),
+        new Error(`You already have a form with slug "${slug}". Choose a different slug.`),
         { statusCode: 409 },
       );
     }

@@ -7,7 +7,7 @@ import { FormRenderer, ThemedSuccess } from "../components/FormRenderer";
 import { pageSurfaceStyle } from "../lib/formThemes";
 
 export function PublicFormPage() {
-  const { slug = "" } = useParams();
+  const { ownerId = "", slug = "" } = useParams();
   const [searchParams] = useSearchParams();
   const embed = searchParams.get("embed") === "true";
 
@@ -22,7 +22,7 @@ export function PublicFormPage() {
     (async () => {
       try {
         setLoading(true);
-        const published = await api.getPublishedForm(slug);
+        const published = await api.getPublishedForm(ownerId, slug);
         if (cancelled) return;
         setDefinition(published.definition);
         setRevision(published.revision);
@@ -35,7 +35,7 @@ export function PublicFormPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [ownerId, slug]);
 
   if (loading) {
     return (
@@ -80,7 +80,7 @@ export function PublicFormPage() {
         compactFrame={embed}
         showHoneypot
         onSubmit={async (payload, website) => {
-          await api.submitPublicForm(slug, {
+          await api.submitPublicForm(ownerId, slug, {
             payload,
             website,
             idempotencyKey: crypto.randomUUID(),

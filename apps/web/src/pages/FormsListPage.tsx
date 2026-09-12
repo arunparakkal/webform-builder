@@ -282,7 +282,9 @@ export function FormsListPage() {
                       >
                         {form.title}
                       </Link>
-                      <p className="truncate text-sm text-[#64748B]">/f/{form.slug}</p>
+                      <p className="truncate text-sm text-[#64748B]">
+                        /f/…/{form.slug}
+                      </p>
                     </div>
                     <div className="hidden text-sm text-[#64748B] sm:block">
                       {formatDate(form.createdAt).split(",")[0]}

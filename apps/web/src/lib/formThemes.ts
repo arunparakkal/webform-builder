@@ -412,13 +412,15 @@ export function themeFromBackgroundPack(id: string, current: FormTheme): FormThe
 
 export function pageSurfaceStyle(theme: FormTheme): CSSProperties {
   const image = theme.pageBackgroundImage?.trim();
-  if (!image) {
+  // Only allow https backgrounds (blocks javascript:/data: CSS url injection).
+  const safeImage = image && image.startsWith("https://") ? image.replace(/["'\\]/g, "") : "";
+  if (!safeImage) {
     return { backgroundColor: theme.colors.page };
   }
   const overlay = theme.pageBackgroundOverlay?.trim() || "rgba(15, 23, 42, 0.35)";
   return {
     backgroundColor: theme.colors.page,
-    backgroundImage: `linear-gradient(${overlay}, ${overlay}), url(${image})`,
+    backgroundImage: `linear-gradient(${overlay}, ${overlay}), url("${safeImage}")`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
