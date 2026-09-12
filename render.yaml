@@ -1,6 +1,9 @@
 # Blueprint: https://render.com/docs/blueprint-spec
 # Connect this repo in Render → New → Blueprint.
 # Set secret env vars in the dashboard after first sync (DATABASE_URL, REDIS_URL, JWT_SECRET, etc.).
+#
+# Free tier: only a web service. The BullMQ consumer runs inside the API process
+# (see apps/api/src/submission-worker.ts). A separate background worker is not available on free.
 
 services:
   - type: web
@@ -29,19 +32,3 @@ services:
         sync: false
       - key: RATE_LIMIT_PER_MINUTE
         value: "60"
-
-  - type: worker
-    name: webform-worker
-    runtime: node
-    plan: free
-    region: singapore
-    rootDir: .
-    buildCommand: npm install && npm run db:generate
-    startCommand: npm run start -w @webform/worker
-    envVars:
-      - key: NODE_VERSION
-        value: "20"
-      - key: DATABASE_URL
-        sync: false
-      - key: REDIS_URL
-        sync: false
