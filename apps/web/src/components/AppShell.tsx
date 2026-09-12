@@ -13,12 +13,6 @@ const navItems = [
 function NavIcon({ name }: { name: (typeof navItems)[number]["icon"] }) {
   const common = "h-4 w-4";
   switch (name) {
-    case "home":
-      return (
-        <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
-          <path d="M3.5 9.5 10 4l6.5 5.5V16a1 1 0 0 1-1 1h-3.5v-4h-4v4H4.5a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-        </svg>
-      );
     case "forms":
       return (
         <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
