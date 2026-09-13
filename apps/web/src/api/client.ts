@@ -8,6 +8,7 @@ export type FormSummary = {
   slug: string;
   status: string;
   publishedVersionId: string | null;
+  draftDefinition?: FormDefinition;
   createdAt: string;
   updatedAt: string;
 };

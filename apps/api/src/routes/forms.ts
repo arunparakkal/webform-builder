@@ -49,6 +49,7 @@ export const formsRoutes: FastifyPluginAsync = async (app) => {
         slug: true,
         status: true,
         publishedVersionId: true,
+        draftDefinition: true,
         createdAt: true,
         updatedAt: true,
       },

@@ -5,7 +5,7 @@ const dashboardNav = [
   { label: "My Forms", to: "/app", icon: "forms" as const },
   { label: "Templates", to: "/app/templates", icon: "templates" as const },
   { label: "AI Builder", to: "/app/ai", icon: "ai" as const },
-  { label: "Submissions", to: null, icon: "inbox" as const },
+  { label: "Submissions", to: "/app/submissions", icon: "inbox" as const },
   { label: "Settings", to: null, icon: "settings" as const },
 ];
 
@@ -13,7 +13,7 @@ const editorNav = [
   { label: "My Forms", to: "/app", icon: "forms" as const },
   { label: "Templates", to: "/app/templates", icon: "templates" as const },
   { label: "AI Builder", to: "/app/ai", icon: "ai" as const },
-  { label: "Submissions", to: null, icon: "inbox" as const },
+  { label: "Submissions", to: "/app/submissions", icon: "inbox" as const },
 ];
 
 function NavIcon({
@@ -227,10 +227,12 @@ export function AppShell() {
             {dashboardNav.map((item) => {
               const onTemplates = location.pathname.startsWith("/app/templates");
               const onAi = location.pathname.startsWith("/app/ai");
+              const onSubmissions = location.pathname.startsWith("/app/submissions");
               const onMyForms = location.pathname === "/app";
               let active = false;
               if (item.label === "Templates") active = onTemplates;
               else if (item.label === "AI Builder") active = onAi;
+              else if (item.label === "Submissions") active = onSubmissions;
               else if (item.label === "My Forms") active = onMyForms;
 
               if (!item.to) {

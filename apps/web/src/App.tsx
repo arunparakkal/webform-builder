@@ -11,6 +11,7 @@ import { PublicFormPage } from "./pages/PublicFormPage";
 import { PublishSuccessPage } from "./pages/PublishSuccessPage";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
+import { SubmissionsHubPage } from "./pages/SubmissionsHubPage";
 import { SubmissionsPage } from "./pages/SubmissionsPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/app" element={<FormsListPage />} />
           <Route path="/app/templates" element={<TemplatesPage />} />
           <Route path="/app/ai" element={<AiBuilderPage />} />
+          <Route path="/app/submissions" element={<SubmissionsHubPage />} />
           <Route path="/forms/:id" element={<EditorPage />} />
           <Route path="/forms/:id/preview" element={<PreviewPage />} />
           <Route path="/forms/:id/published" element={<PublishSuccessPage />} />
