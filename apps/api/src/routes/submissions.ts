@@ -8,7 +8,7 @@ import {
 import { z } from "zod";
 
 const listQuery = z.object({
-  cursor: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
@@ -77,29 +77,40 @@ export const submissionsRoutes: FastifyPluginAsync = async (app) => {
     });
     if (!form) return reply.code(404).send({ error: "Form not found" });
 
-    const rows = await prisma.formSubmission.findMany({
-      where: buildWhere(id, query),
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: query.limit + 1,
-      include: {
-        formVersion: { select: { id: true, revision: true, definition: true } },
-      },
-    });
+    const where = buildWhere(id, query);
+    const skip = (query.page - 1) * query.limit;
 
-    const hasMore = rows.length > query.limit;
-    const items = hasMore ? rows.slice(0, query.limit) : rows;
-    const last = items[items.length - 1];
-    const nextCursor = hasMore && last ? `${last.createdAt.toISOString()}_${last.id}` : null;
+    const [total, rows] = await Promise.all([
+      prisma.formSubmission.count({ where }),
+      prisma.formSubmission.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: query.limit,
+        include: {
+          formVersion: { select: { id: true, revision: true, definition: true } },
+        },
+      }),
+    ]);
+
+    const pageCount = total === 0 ? 0 : Math.ceil(total / query.limit);
 
     return {
-      items: items.map((row) => ({
+      items: rows.map((row) => ({
         id: row.id,
         formVersionId: row.formVersionId,
         revision: row.formVersion.revision,
         payload: row.payload,
         createdAt: row.createdAt,
       })),
-      nextCursor,
+      total,
+      page: query.page,
+      limit: query.limit,
+      pageCount,
+      /** Kept for older clients; prefer page/total for inbox UI. */
+      nextCursor: query.page < pageCount && rows.length > 0
+        ? `${rows[rows.length - 1]!.createdAt.toISOString()}_${rows[rows.length - 1]!.id}`
+        : null,
     };
   });
 

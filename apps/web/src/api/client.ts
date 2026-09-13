@@ -36,6 +36,10 @@ export type SubmissionItem = {
 
 export type SubmissionsResponse = {
   items: SubmissionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  pageCount: number;
   nextCursor: string | null;
 };
 
@@ -184,10 +188,16 @@ export const api = {
 
   listSubmissions: (
     id: string,
-    params: { cursor?: string; limit?: number; revision?: number; from?: string; to?: string },
+    params: {
+      page?: number;
+      limit?: number;
+      revision?: number;
+      from?: string;
+      to?: string;
+    },
   ) => {
     const query = new URLSearchParams();
-    if (params.cursor) query.set("cursor", params.cursor);
+    if (params.page) query.set("page", String(params.page));
     if (params.limit) query.set("limit", String(params.limit));
     if (params.revision) query.set("revision", String(params.revision));
     if (params.from) query.set("from", params.from);
