@@ -4,6 +4,7 @@ import type { Redis } from "ioredis";
 import { prisma } from "@webform/db";
 import type { Env } from "./env.js";
 import type { AuthUser } from "./services/auth.js";
+import { aiRoutes } from "./routes/ai.js";
 import { authRoutes, requireAuth } from "./routes/auth.js";
 import { formsRoutes } from "./routes/forms.js";
 import { publicRoutes } from "./routes/public.js";
@@ -50,6 +51,7 @@ export async function buildApp(env: Env, redis: Redis) {
     protectedApp.addHook("preHandler", requireAuth);
     await protectedApp.register(formsRoutes);
     await protectedApp.register(submissionsRoutes);
+    await protectedApp.register(aiRoutes);
   });
 
   app.addHook("onClose", async () => {

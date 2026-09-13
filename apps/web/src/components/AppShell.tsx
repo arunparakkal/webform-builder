@@ -4,6 +4,7 @@ import { useAuthStore } from "../store/authStore";
 const dashboardNav = [
   { label: "My Forms", to: "/app", icon: "forms" as const },
   { label: "Templates", to: "/app/templates", icon: "templates" as const },
+  { label: "AI Builder", to: "/app/ai", icon: "ai" as const },
   { label: "Submissions", to: null, icon: "inbox" as const },
   { label: "Settings", to: null, icon: "settings" as const },
 ];
@@ -11,13 +12,14 @@ const dashboardNav = [
 const editorNav = [
   { label: "My Forms", to: "/app", icon: "forms" as const },
   { label: "Templates", to: "/app/templates", icon: "templates" as const },
+  { label: "AI Builder", to: "/app/ai", icon: "ai" as const },
   { label: "Submissions", to: null, icon: "inbox" as const },
 ];
 
 function NavIcon({
   name,
 }: {
-  name: "forms" | "templates" | "inbox" | "settings";
+  name: "forms" | "templates" | "inbox" | "settings" | "ai";
 }) {
   const common = "h-4 w-4";
   switch (name) {
@@ -35,6 +37,23 @@ function NavIcon({
           <rect x="11" y="3.5" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
           <rect x="3.5" y="11" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
           <rect x="11" y="11" width="5.5" height="5.5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+      );
+    case "ai":
+      return (
+        <svg viewBox="0 0 20 20" className={common} fill="none" aria-hidden="true">
+          <path
+            d="M10 3.5 11.2 7.5 15.5 8.5 11.2 9.5 10 13.5 8.8 9.5 4.5 8.5 8.8 7.5 10 3.5Z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M15 12.5 15.6 14.2 17.5 14.8 15.6 15.4 15 17.2 14.4 15.4 12.5 14.8 14.4 14.2 15 12.5Z"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     case "inbox":
@@ -207,9 +226,11 @@ export function AppShell() {
           <nav className="flex flex-1 flex-col gap-1" aria-label="Dashboard">
             {dashboardNav.map((item) => {
               const onTemplates = location.pathname.startsWith("/app/templates");
+              const onAi = location.pathname.startsWith("/app/ai");
               const onMyForms = location.pathname === "/app";
               let active = false;
               if (item.label === "Templates") active = onTemplates;
+              else if (item.label === "AI Builder") active = onAi;
               else if (item.label === "My Forms") active = onMyForms;
 
               if (!item.to) {

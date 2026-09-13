@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AiBuilderPage } from "./pages/AiBuilderPage";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { EditorPage } from "./pages/EditorPage";
 import { FormsListPage } from "./pages/FormsListPage";
@@ -25,6 +26,7 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/app" element={<FormsListPage />} />
           <Route path="/app/templates" element={<TemplatesPage />} />
+          <Route path="/app/ai" element={<AiBuilderPage />} />
           <Route path="/forms/:id" element={<EditorPage />} />
           <Route path="/forms/:id/preview" element={<PreviewPage />} />
           <Route path="/forms/:id/published" element={<PublishSuccessPage />} />

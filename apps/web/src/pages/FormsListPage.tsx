@@ -340,6 +340,25 @@ export function FormsListPage() {
                 </span>
               </button>
               <Link
+                to="/app/ai"
+                className="flex w-full items-center gap-3 rounded-xl bg-[#F8FAFC] px-3.5 py-3 text-left no-underline hover:bg-[#F1F5F9]"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E2E8F0] text-[#0B1F44]">
+                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+                    <path
+                      d="M10 3.5 11.2 7.5 15.5 8.5 11.2 9.5 10 13.5 8.8 9.5 4.5 8.5 8.8 7.5 10 3.5Z"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-[#0B1F44]">AI Builder</span>
+                  <span className="block text-xs text-[#64748B]">Describe a form in chat</span>
+                </span>
+              </Link>
+              <Link
                 to="/app"
                 onClick={(e) => {
                   e.preventDefault();

@@ -48,6 +48,9 @@ const envSchema = z.object({
   RATE_LIMIT_OWNER_PER_MINUTE: z.coerce.number().default(180),
   SUPABASE_URL: z.string().optional().default(""),
   SUPABASE_ANON_KEY: z.string().optional().default(""),
+  /** Optional. Enables POST /api/ai/forms (chat → draft form). */
+  OPENAI_API_KEY: z.string().optional().default(""),
+  OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -237,4 +237,24 @@ export const api = {
         auth: false,
       },
     ),
+
+  aiCreateForm: (message: string, history?: Array<{ role: "user" | "assistant"; content: string }>) =>
+    request<
+      | { kind: "clarify"; reply: string }
+      | {
+          kind: "create";
+          reply: string;
+          form: {
+            id: string;
+            ownerId: string;
+            title: string;
+            slug: string;
+            status: string;
+          };
+          fieldCount: number;
+        }
+    >("/api/ai/forms", {
+      method: "POST",
+      body: JSON.stringify({ message, history }),
+    }),
 };
