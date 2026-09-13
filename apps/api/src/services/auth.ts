@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
 import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "@webform/db";
 import { z } from "zod";
@@ -135,6 +134,9 @@ async function upsertUserFromOAuth(email: string, name: string | null) {
 /**
  * Verify a Supabase access token, then map to (or create) a Prisma app user.
  * Keeps existing form ownership on our JWT / ownerId model.
+ *
+ * Uses the Auth REST API (not supabase-js createClient) so Render/Node 20
+ * never initializes Realtime WebSockets during Google sign-in.
  */
 export async function authenticateWithSupabase(
   accessToken: string,
@@ -147,27 +149,31 @@ export async function authenticateWithSupabase(
     });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
+  const base = supabaseUrl.replace(/\/$/, "");
+  const res = await fetch(`${base}/auth/v1/user`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      apikey: supabaseAnonKey,
     },
   });
 
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data.user) {
+  if (!res.ok) {
     throw Object.assign(new Error("Invalid or expired Supabase session"), { statusCode: 401 });
   }
 
-  const email = data.user.email?.toLowerCase() ?? null;
+  const data = (await res.json()) as {
+    email?: string | null;
+    user_metadata?: Record<string, unknown> | null;
+  };
+
+  const email = data.email?.toLowerCase() ?? null;
   if (!email) {
     throw Object.assign(new Error("A verified email is required from Supabase"), {
       statusCode: 400,
     });
   }
 
-  const meta = data.user.user_metadata ?? {};
+  const meta = data.user_metadata ?? {};
   const name =
     (typeof meta.full_name === "string" && meta.full_name) ||
     (typeof meta.name === "string" && meta.name) ||

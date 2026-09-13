@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
-    "@supabase/supabase-js": "^2.116.0",
     "@webform/db": "*",
     "@webform/form-schema": "*",
     "bcryptjs": "^3.0.3",
