@@ -1,6 +1,6 @@
 # Trade-offs
 
-Three decisions that shape this system. Each lists what we chose, what we rejected, and why.
+Three decisions that shape this system. Each lists what we chose, what we rejected, and why. A fourth section covers **hosting / paid-plan choices** for the working slice versus commercial alternatives.
 
 ---
 
@@ -28,7 +28,7 @@ That is simpler and the row is durable as soon as the client gets success. It fa
 - **Burst:** a spike plus a slow disk or lock waits on Postgres makes every submit wait on the database. The API falls over with the DB.
 - **Downstream unavailable:** if Postgres is down, the handler cannot accept work. Accepted-but-not-yet-stored is exactly what a durable queue is for.
 
-**Cost of the choice:** the client sees “accepted,” not “row visible in the inbox,” for a short time. Redis AOF is weaker than SQS. The working slice still uses Redis + BullMQ because it is runnable in one Docker Compose file. Production should replace the buffer with SQS (or Kafka) **without changing the REST contract**. Cache and rate limits can stay on Redis.
+**Cost of the choice:** the client sees “accepted,” not “row visible in the inbox,” for a short time. Redis AOF / Upstash is weaker than SQS multi-AZ. The working slice still uses Redis + BullMQ because it is runnable locally and on a free hosted Redis. Production should replace the buffer with SQS (or Kafka) **without changing the REST contract**. Cache and rate limits can stay on Redis.
 
 We also rejected “enqueue without validating.” Invalid traffic must not fill the queue. Zod runs **before** enqueue, using the published revision (including show-if).
 
@@ -44,4 +44,21 @@ Next.js would ship a builder faster (one app, one deploy). The public submit pat
 **Rejected: Go (or another systems language) for ingest in this slice.**  
 Go is an excellent later extraction for the hot path. Two languages in a 6–8 hour slice would cost a shared form definition and shared Zod/types. TypeScript lets the editor, the public renderer, and the server validate the **same** JSON. The architecture still allows replacing Fastify ingest with a Go or edge worker later; the job payload and `form_version_id` contract would stay.
 
-**Cost of the choice:** two Node processes and a reverse-proxy in Compose, instead of one Next.js server. That is the point: ingest and the builder do not scale the same way.
+**Cost of the choice:** two Node processes (and separate deploys: Vercel web + Render API), instead of one Next.js server. That is the point: ingest and the builder do not scale the same way.
+
+---
+
+## 4. Free / low-cost hosting vs other paid plans
+
+The brief is to **design and prove** architecture (burst ingest, versioning, tenant isolation), not to buy a commercial form product or max out paid cloud tiers. Hosting choices follow that.
+
+| Concern | Chose | Rejected | Why |
+|---|---|---|---|
+| Database | Supabase Postgres (free tier) | Paid RDS / Cloud SQL / Mongo Atlas as primary | Same schema locally and in prod; FKs + JSONB + Auth in one place. Paid RDS is overkill for the proof slice. |
+| Queue / cache / rate limit | Upstash Redis free (`rediss://`) or local Redis | Redis Cloud paid, ElastiCache | Enough for BullMQ + definition cache + per-form limits at demo/load-gen scale. |
+| Web SPA | Vercel | Paid Heroku dynos / single-vendor “all-in-one” PaaS for UI | Static Vite build fits the edge; UI and API stay independently deployable. |
+| API / worker | Render free web service | Paid Render Background Worker, ECS/EKS | Free tier has no separate worker process — the submission consumer runs **in-API**. Same BullMQ contract; paid worker is a later ops upgrade, not a design change. |
+| AI assist | Gemini free-tier key (OpenAI optional) | Paid OpenAI-only path | Editor Copilot / AI Builder work without burning OpenAI credits; OpenAI stays a fallback if configured. AI is off the public submit hot path. |
+| Product | Build this stack | Buy Typeform / Jotform / Google Forms | Buying a SaaS does not demonstrate queue-first ingest, immutable `form_versions`, or owner-scoped isolation. |
+
+**What we are not claiming:** “never pay for anything.” At real public scale we would **pay** for stronger pieces already listed under Designed in `ARCHITECTURE.md` — SQS/Kafka, load balancer + autoscaling, CAPTCHA/WAF, partitioning, async export to object storage. Free tiers are how we ship and review the contract; paid plans are how that same contract runs in production.
