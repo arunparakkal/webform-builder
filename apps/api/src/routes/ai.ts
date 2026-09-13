@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
-import { generateFormFromChat } from "../services/ai-forms.js";
+import { generateFormFromChat, type AiProviderConfig } from "../services/ai-forms.js";
 
 const chatBody = z.object({
   message: z.string().min(1).max(4000),
@@ -15,12 +15,36 @@ const chatBody = z.object({
     .optional(),
 });
 
+function resolveLlm(env: {
+  GEMINI_API_KEY: string;
+  GEMINI_MODEL: string;
+  OPENAI_API_KEY: string;
+  OPENAI_MODEL: string;
+}): AiProviderConfig | null {
+  if (env.GEMINI_API_KEY.trim()) {
+    return {
+      provider: "gemini",
+      apiKey: env.GEMINI_API_KEY.trim(),
+      model: env.GEMINI_MODEL,
+    };
+  }
+  if (env.OPENAI_API_KEY.trim()) {
+    return {
+      provider: "openai",
+      apiKey: env.OPENAI_API_KEY.trim(),
+      model: env.OPENAI_MODEL,
+    };
+  }
+  return null;
+}
+
 export const aiRoutes: FastifyPluginAsync = async (app) => {
   app.post("/api/ai/forms", async (request, reply) => {
-    if (!app.env.OPENAI_API_KEY) {
+    const llm = resolveLlm(app.env);
+    if (!llm) {
       return reply.code(503).send({
         error:
-          "AI form builder is not configured. Set OPENAI_API_KEY in the API environment.",
+          "AI form builder is not configured. Set GEMINI_API_KEY (free) or OPENAI_API_KEY on the API.",
       });
     }
 
@@ -34,8 +58,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         ownerId: request.ownerId,
         message: parsed.data.message,
         history: parsed.data.history,
-        apiKey: app.env.OPENAI_API_KEY,
-        model: app.env.OPENAI_MODEL,
+        llm,
       });
       return result;
     } catch (err) {

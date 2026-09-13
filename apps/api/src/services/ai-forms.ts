@@ -35,6 +35,10 @@ export type AiFormResult =
       fieldCount: number;
     };
 
+export type AiProviderConfig =
+  | { provider: "gemini"; apiKey: string; model: string }
+  | { provider: "openai"; apiKey: string; model: string };
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -227,6 +231,98 @@ Rules:
 - Do not invent themes. Keep reply under 80 words.
 - Never refuse ordinary business forms (contact, signup, feedback, RSVP, job application, etc.).`;
 
+function parsePlanFromJson(content: string, providerLabel: string): AiFormPlan {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    const fenced = content.match(/\{[\s\S]*\}/);
+    if (!fenced) {
+      throw Object.assign(new Error(`${providerLabel} returned invalid JSON`), {
+        statusCode: 502,
+      });
+    }
+    try {
+      parsed = JSON.parse(fenced[0]);
+    } catch {
+      throw Object.assign(new Error(`${providerLabel} returned invalid JSON`), {
+        statusCode: 502,
+      });
+    }
+  }
+
+  const obj = parsed as Record<string, unknown>;
+  const action = obj.action === "create" ? "create" : "clarify";
+  const reply =
+    typeof obj.reply === "string" && obj.reply.trim()
+      ? obj.reply.trim()
+      : action === "create"
+        ? "I built a draft form for you."
+        : "Could you share a bit more detail about the form you need?";
+
+  return {
+    reply,
+    action,
+    title: typeof obj.title === "string" ? obj.title : undefined,
+    slug: typeof obj.slug === "string" ? obj.slug : undefined,
+    definition: obj.definition,
+  };
+}
+
+async function callGemini(
+  apiKey: string,
+  model: string,
+  history: AiChatTurn[],
+  message: string,
+): Promise<AiFormPlan> {
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  for (const turn of history.slice(-8)) {
+    contents.push({
+      role: turn.role === "assistant" ? "model" : "user",
+      parts: [{ text: turn.content }],
+    });
+  }
+  contents.push({ role: "user", parts: [{ text: message }] });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents,
+      generationConfig: {
+        temperature: 0.4,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw Object.assign(
+      new Error(
+        res.status === 400 || res.status === 403
+          ? `Gemini API key rejected or invalid. Check GEMINI_API_KEY. (${text.slice(0, 160)})`
+          : `Gemini request failed (${res.status}): ${text.slice(0, 200)}`,
+      ),
+      { statusCode: 502 },
+    );
+  }
+
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const content =
+    data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!content.trim()) {
+    throw Object.assign(new Error("Gemini returned an empty response"), {
+      statusCode: 502,
+    });
+  }
+  return parsePlanFromJson(content, "Gemini");
+}
+
 async function callOpenAi(
   apiKey: string,
   model: string,
@@ -275,31 +371,7 @@ async function callOpenAi(
     });
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw Object.assign(new Error("OpenAI returned invalid JSON"), {
-      statusCode: 502,
-    });
-  }
-
-  const obj = parsed as Record<string, unknown>;
-  const action = obj.action === "create" ? "create" : "clarify";
-  const reply =
-    typeof obj.reply === "string" && obj.reply.trim()
-      ? obj.reply.trim()
-      : action === "create"
-        ? "I built a draft form for you."
-        : "Could you share a bit more detail about the form you need?";
-
-  return {
-    reply,
-    action,
-    title: typeof obj.title === "string" ? obj.title : undefined,
-    slug: typeof obj.slug === "string" ? obj.slug : undefined,
-    definition: obj.definition,
-  };
+  return parsePlanFromJson(content, "OpenAI");
 }
 
 async function uniqueSlug(ownerId: string, preferred: string): Promise<string> {
@@ -323,15 +395,13 @@ export async function generateFormFromChat(input: {
   ownerId: string;
   message: string;
   history?: AiChatTurn[];
-  apiKey: string;
-  model: string;
+  llm: AiProviderConfig;
 }): Promise<AiFormResult> {
-  const plan = await callOpenAi(
-    input.apiKey,
-    input.model,
-    input.history ?? [],
-    input.message,
-  );
+  const history = input.history ?? [];
+  const plan =
+    input.llm.provider === "gemini"
+      ? await callGemini(input.llm.apiKey, input.llm.model, history, input.message)
+      : await callOpenAi(input.llm.apiKey, input.llm.model, history, input.message);
 
   if (plan.action !== "create" || !plan.definition) {
     return { kind: "clarify", reply: plan.reply };
