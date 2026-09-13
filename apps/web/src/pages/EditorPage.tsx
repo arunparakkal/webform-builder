@@ -9,6 +9,7 @@ import {
 } from "../components/FieldEditor";
 import { FormRenderer } from "../components/FormRenderer";
 import { FormThemePanel } from "../components/FormThemePanel";
+import { EditorCopilot } from "../components/EditorCopilot";
 import { SuccessToast } from "../components/SuccessToast";
 import { useEditorStore } from "../store/editorStore";
 
@@ -539,11 +540,11 @@ export function EditorPage() {
         </div>
       </footer>
 
-      {/* Floating theme designer symbol — keep */}
+      {/* Blue theme symbol — top-right; Ask Copilot stays bottom-right */}
       <button
         type="button"
         onClick={() => setShowTheme(true)}
-        className="fixed right-5 bottom-20 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-lg shadow-blue-500/30 hover:bg-[#1D4ED8] lg:right-8 lg:bottom-24"
+        className="fixed top-20 right-5 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#2563EB] text-white shadow-lg shadow-blue-500/30 hover:bg-[#1D4ED8] lg:right-8"
         aria-label="Open form designer"
         title="Colors and themes"
       >
@@ -557,6 +558,18 @@ export function EditorPage() {
           <circle cx="15" cy="9" r="1.2" fill="currentColor" />
         </svg>
       </button>
+
+      <EditorCopilot
+        formId={id}
+        definition={definition}
+        onApplyDefinition={(next) => {
+          setDefinition({
+            ...next,
+            theme: resolveFormTheme(next.theme ?? definition.theme),
+          });
+          setMessage("Copilot updated the draft. Save when you’re ready.");
+        }}
+      />
 
       {showTheme ? (
         <div className="fixed inset-0 z-40 flex justify-end bg-[#0B1F44]/20 backdrop-blur-[1px]">

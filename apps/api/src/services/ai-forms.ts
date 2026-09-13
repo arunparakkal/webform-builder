@@ -14,7 +14,7 @@ export type AiChatTurn = { role: "user" | "assistant"; content: string };
 
 export type AiFormPlan = {
   reply: string;
-  action: "clarify" | "create";
+  action: "clarify" | "create" | "update";
   title?: string;
   slug?: string;
   definition?: unknown;
@@ -252,13 +252,14 @@ function parsePlanFromJson(content: string, providerLabel: string): AiFormPlan {
   }
 
   const obj = parsed as Record<string, unknown>;
-  const action = obj.action === "create" ? "create" : "clarify";
+  const action =
+    obj.action === "create" || obj.action === "update" ? obj.action : "clarify";
   const reply =
     typeof obj.reply === "string" && obj.reply.trim()
       ? obj.reply.trim()
-      : action === "create"
-        ? "I built a draft form for you."
-        : "Could you share a bit more detail about the form you need?";
+      : action === "clarify"
+        ? "Could you share a bit more detail about the form you need?"
+        : "Done — I updated the form draft.";
 
   return {
     reply,
@@ -274,6 +275,7 @@ async function callGemini(
   model: string,
   history: AiChatTurn[],
   message: string,
+  systemPrompt: string = SYSTEM_PROMPT,
 ): Promise<AiFormPlan> {
   const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
   for (const turn of history.slice(-8)) {
@@ -289,7 +291,7 @@ async function callGemini(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: systemPrompt }] },
       contents,
       generationConfig: {
         temperature: 0.4,
@@ -328,9 +330,10 @@ async function callOpenAi(
   model: string,
   history: AiChatTurn[],
   message: string,
+  systemPrompt: string = SYSTEM_PROMPT,
 ): Promise<AiFormPlan> {
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     ...history.slice(-8).map((t) => ({ role: t.role, content: t.content })),
     { role: "user", content: message },
   ];
@@ -374,6 +377,17 @@ async function callOpenAi(
   return parsePlanFromJson(content, "OpenAI");
 }
 
+async function runLlm(
+  llm: AiProviderConfig,
+  history: AiChatTurn[],
+  message: string,
+  systemPrompt: string,
+): Promise<AiFormPlan> {
+  return llm.provider === "gemini"
+    ? callGemini(llm.apiKey, llm.model, history, message, systemPrompt)
+    : callOpenAi(llm.apiKey, llm.model, history, message, systemPrompt);
+}
+
 async function uniqueSlug(ownerId: string, preferred: string): Promise<string> {
   let base = slugify(preferred) || `form-${Date.now().toString(36)}`;
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(base)) {
@@ -398,10 +412,7 @@ export async function generateFormFromChat(input: {
   llm: AiProviderConfig;
 }): Promise<AiFormResult> {
   const history = input.history ?? [];
-  const plan =
-    input.llm.provider === "gemini"
-      ? await callGemini(input.llm.apiKey, input.llm.model, history, input.message)
-      : await callOpenAi(input.llm.apiKey, input.llm.model, history, input.message);
+  const plan = await runLlm(input.llm, history, input.message, SYSTEM_PROMPT);
 
   if (plan.action !== "create" || !plan.definition) {
     return { kind: "clarify", reply: plan.reply };
@@ -439,6 +450,96 @@ export async function generateFormFromChat(input: {
       slug: updated.slug,
       status: updated.status,
     },
+    fieldCount: definition.fields.length,
+  };
+}
+
+const EDIT_SYSTEM_PROMPT = `You are a form editor copilot for FormBuilder.
+The user already has a draft form. Apply their edit request (add fields, rename labels, change types, remove fields, tweak settings).
+
+Return ONLY valid JSON:
+{
+  "reply": "short friendly summary of what you changed",
+  "action": "clarify" | "update",
+  "definition": { full FormDefinition when action=update }
+}
+
+FormDefinition shape:
+{
+  "schemaVersion": 1,
+  "meta": { "title": string, "description": string },
+  "settings": { "submitLabel": string, "successMessage": string },
+  "fields": [ { "id", "type", "name", "label", "placeholder", "helpText", "required", "validation", "options", "visibility" } ]
+}
+
+Field types: text|email|number|textarea|select|multiselect|radio|checkbox|date
+Rules:
+- When action=update, return the COMPLETE updated fields array (keep fields the user did not ask to remove).
+- Preserve existing field ids when editing the same field; new fields get new ids.
+- Choice types need options (2+). Non-choice types must have options: [].
+- Field names: snake_case, unique. visibility: { "mode": "always" } unless asked otherwise.
+- Do not invent themes. Keep reply under 60 words.
+- If the request is unclear, action=clarify and ask 1 short question (omit definition).`;
+
+function summarizeDefinition(definition: FormDefinition): string {
+  const fields = definition.fields.map((f) => ({
+    id: f.id,
+    type: f.type,
+    name: f.name,
+    label: f.label,
+    required: f.required,
+    options: f.options.map((o) => ({ label: o.label, value: o.value })),
+  }));
+  return JSON.stringify(
+    {
+      meta: definition.meta,
+      settings: definition.settings,
+      fields,
+    },
+    null,
+    2,
+  );
+}
+
+export type AiEditResult =
+  | { kind: "clarify"; reply: string }
+  | {
+      kind: "update";
+      reply: string;
+      definition: FormDefinition;
+      fieldCount: number;
+    };
+
+export async function editFormFromChat(input: {
+  current: FormDefinition;
+  message: string;
+  history?: AiChatTurn[];
+  llm: AiProviderConfig;
+}): Promise<AiEditResult> {
+  const history = input.history ?? [];
+  const userPayload = `Current form draft:\n${summarizeDefinition(input.current)}\n\nUser request:\n${input.message}`;
+  const plan = await runLlm(input.llm, history, userPayload, EDIT_SYSTEM_PROMPT);
+
+  if (plan.action !== "update" || !plan.definition) {
+    return { kind: "clarify", reply: plan.reply };
+  }
+
+  const title =
+    (typeof (plan.definition as { meta?: { title?: string } })?.meta?.title === "string"
+      ? (plan.definition as { meta: { title: string } }).meta.title
+      : input.current.meta.title) || "Untitled form";
+
+  const normalized = normalizeAiDefinition(plan.definition, title);
+  // Keep designer theme; AI edits fields/meta/settings only.
+  const definition: FormDefinition = {
+    ...normalized,
+    theme: input.current.theme ?? normalized.theme,
+  };
+
+  return {
+    kind: "update",
+    reply: plan.reply,
+    definition,
     fieldCount: definition.fields.length,
   };
 }

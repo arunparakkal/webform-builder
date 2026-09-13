@@ -257,4 +257,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message, history }),
     }),
+
+  aiEditForm: (
+    formId: string,
+    body: {
+      message: string;
+      definition: FormDefinition;
+      history?: Array<{ role: "user" | "assistant"; content: string }>;
+    },
+  ) =>
+    request<
+      | { kind: "clarify"; reply: string }
+      | { kind: "update"; reply: string; definition: FormDefinition; fieldCount: number }
+    >(`/api/ai/forms/${encodeURIComponent(formId)}/edit`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
