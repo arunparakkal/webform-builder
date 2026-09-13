@@ -61,7 +61,7 @@ const LAYOUT_ITEMS: LibraryItem[] = [
 ];
 
 export function FieldTypeIcon({ type }: { type: FieldType }) {
-  const cls = "h-4 w-4";
+  const cls = "h-5 w-5";
   switch (type) {
     case "text":
       return (
@@ -132,7 +132,7 @@ export function FieldTypeIcon({ type }: { type: FieldType }) {
 function LibraryGlyph({ item }: { item: LibraryItem }) {
   if (item.type) return <FieldTypeIcon type={item.type} />;
   return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden="true">
       <rect x="4" y="4" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
@@ -178,7 +178,7 @@ function ElementGrid({
   onAdd: (type: FieldType) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-3 gap-2">
       {items.map((item) => (
         <button
           key={item.id}
@@ -186,19 +186,17 @@ function ElementGrid({
           disabled={item.soon || !item.type}
           title={item.soon ? "Coming soon" : `Add ${item.label}`}
           onClick={() => item.type && onAdd(item.type)}
-          className="group flex items-center gap-2.5 rounded-xl border border-[#E5E7EB] bg-white px-2.5 py-2.5 text-left transition hover:border-[#BFDBFE] hover:bg-[#F8FBFF] disabled:cursor-not-allowed disabled:opacity-55"
+          className="flex flex-col items-center gap-1.5 rounded-xl bg-[#F1F5F9] px-1.5 py-3 text-center transition hover:bg-[#E8EEF5] hover:ring-1 hover:ring-[#BFDBFE] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.tone}`}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.tone}`}
           >
             <LibraryGlyph item={item} />
           </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[13px] font-medium text-[#0F172A]">
-              {item.label}
-            </span>
+          <span className="w-full px-0.5 text-[11px] leading-tight font-medium text-[#334155]">
+            {item.label}
             {item.soon ? (
-              <span className="block text-[10px] font-medium text-[#94A3B8]">Soon</span>
+              <span className="mt-0.5 block text-[9px] font-medium text-[#94A3B8]">Soon</span>
             ) : null}
           </span>
         </button>

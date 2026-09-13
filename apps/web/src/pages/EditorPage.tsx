@@ -403,7 +403,7 @@ export function EditorPage() {
         ) : null}
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[260px_300px_minmax(0,1fr)] lg:items-stretch sm:p-4">
+      <div className="grid min-h-0 flex-1 gap-3 p-3 lg:grid-cols-[280px_300px_minmax(0,1fr)] lg:items-stretch sm:p-4">
         <section className="min-h-[28rem] overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
           <FieldListPanel
             definition={definition}
@@ -461,8 +461,14 @@ export function EditorPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-[#E8EEF5] p-4 sm:p-6">
-            <div className={`mx-auto overflow-hidden rounded-2xl shadow-md ${previewMax}`}>
+          <div
+            className="flex-1 overflow-auto bg-[#E8EEF5] bg-cover bg-left p-4 sm:p-6"
+            style={{
+              backgroundImage:
+                "linear-gradient(105deg, rgba(232,238,245,0.88) 0%, rgba(232,238,245,0.72) 40%, rgba(232,238,245,0.82) 100%), url(https://images.unsplash.com/photo-1466781783364-36c955e42a7f?auto=format&fit=crop&w=1600&q=80)",
+            }}
+          >
+            <div className={`mx-auto overflow-hidden rounded-2xl shadow-lg shadow-slate-900/10 ${previewMax}`}>
               <FormRenderer
                 key={
                   definition.fields.map((f) => f.id).join(",") +
