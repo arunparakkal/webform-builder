@@ -170,10 +170,12 @@ Owners view submissions for **their** forms only (`owner_id` + `form_id`).
 
 | Need | How |
 |---|---|
-| Paginated | Cursor on `(form_id, created_at DESC, id)`. Not `OFFSET` — OFFSET gets slower as the table grows. |
-| Filterable | Date range and form revision in the slice. JSONB is not the primary lookup path. |
-| Export | CSV streamed from the same indexed query. Column labels come from **each row’s** `form_version.definition`, so old answers keep old labels. |
-| Large volume | Slice: indexed `WHERE form_id = $1` plus streaming export. Designed: table partitioning, read replicas, async export to object storage. |
+| Paginated | Inbox list uses **page + limit** (`OFFSET`/`LIMIT`) and returns `total` / `pageCount` so the UI can show “Showing 1–10 of N” and page buttons. Rows are ordered by `(created_at DESC, id DESC)` on an indexed `form_id` path. |
+| Filterable | Date range and form revision in the slice. JSONB is not the primary lookup path. Client search filters the current page only. |
+| Export | CSV **streamed in cursor batches** (500 rows) from the same indexed query — export stays cursor-based so multi-million-row downloads do not rely on deep `OFFSET`. Column labels come from version definitions. |
+| Large volume | Slice: indexed `WHERE form_id = $1` plus streaming export. Designed: table partitioning, read replicas, async export to object storage; optionally switch the inbox back to pure cursor pages if deep offsets become hot. |
+
+The submissions **hub** (`/app/submissions`) lists the owner’s forms as preview cards; clicking a card opens that form’s inbox (`/forms/:id/submissions`) with **dynamic columns** taken from the published (or draft) field list.
 
 ---
 
@@ -196,9 +198,9 @@ Designed in front of that: Cloudflare (TLS, cache of GET definition, WAF) and a 
 ### Tenant isolation
 
 - Every owner query is scoped by `owner_id`. There is no “list all submissions” API.
-- Public routes key by `slug` and return only published JSON, never drafts and never other tenants’ inboxes.
+- Public routes key by **`ownerId` + `slug`** (`/f/:ownerId/:slug` and matching API paths) and return only published JSON, never drafts and never other tenants’ inboxes. Slugs are unique **per owner**, not globally.
 - Per-form rate limits keep one viral form from saturating ingest as easily.
-- Designed: per-tenant queue weights / worker fairness so a noisy tenant cannot starve others; Postgres RLS on Supabase as defense in depth.
+- Auth: dashboard routes require a Bearer JWT (email/password or Supabase Google). Designed: Postgres RLS on Supabase as defense in depth; per-tenant queue weights / worker fairness so a noisy tenant cannot starve others.
 
 ### Correctness under component failure
 
@@ -243,12 +245,12 @@ Form identity and the **mutable draft**.
 | `id` | UUID PK |
 | `owner_id` | FK → `users.id` |
 | `title` | Working title |
-| `slug` | Unique public URL key |
+| `slug` | Public URL key; unique **per `owner_id`** (`@@unique([ownerId, slug])`) |
 | `status` | `draft` \| `published` |
 | `published_version_id` | FK → live `form_versions.id`, null if never published |
 | `draft_definition` | JSONB, editor working copy |
 
-Indexes: unique `slug`, index `owner_id`, unique `published_version_id`.
+Indexes: unique `(owner_id, slug)`, index `owner_id`, unique `published_version_id`.
 
 ### `form_versions`
 
@@ -330,24 +332,27 @@ Conditional example: `"visibility": { "mode": "when", "fieldId": "fld_plan", "op
 | Buffer / queue | Redis + BullMQ (slice); SQS (designed) | Absorbs bursts; retries; DLQ. Docker-friendly for one-command run. | Redis AOF is weaker than SQS multi-AZ. Documented in Built vs Designed. |
 | Cache | Redis | Published definitions on GET/POST. Cache is disposable. | Must invalidate on publish. |
 | Rate limit | Redis token bucket per `form_id` (+ IP) | Required on the public path; cheap; does not hit Postgres. | Approximate fairness, not a global quota service. |
-| Load balancing | Designed: Cloudflare / ALB / Nginx in front of N Fastify replicas | Horizontal ingest. | One replica in Compose. |
-| Auth | Slice: `owner_id` on routes (seeded user). Designed: Supabase Auth + RLS | Enough to prove isolation; not a full IdP. | Real SSO is designed, not built. |
+| Load balancing | Designed: Cloudflare / ALB / Nginx in front of N Fastify replicas | Horizontal ingest. | One replica in local / Render slice. |
+| Auth | JWT on owner routes; email/password + Supabase Google OAuth | Proves tenant isolation with real sign-in. Tokens verified server-side (Auth REST for Google / JWT for password). | Full IdP features (orgs, SSO, RLS) still designed. |
+| AI assist | Gemini (preferred) + optional OpenAI fallback | Draft a form from chat; edit fields in the editor via Ask Copilot. Keys live on the API host only. | Not on the public submit path; optional env. |
 
 ---
 
 ## 10. API surface
 
-Owner (always scoped by `owner_id`):
+Owner (always scoped by `owner_id` / JWT):
 
 | Method | Path | Purpose |
 |---|---|---|
 | POST | `/api/forms` | Create form + empty draft |
-| GET | `/api/forms` | List my forms |
-| GET | `/api/forms/:id` | Form + draft |
+| GET | `/api/forms` | List my forms (includes `draftDefinition` for hub previews) |
+| GET | `/api/forms/:id` | Form + draft + versions |
 | PATCH | `/api/forms/:id` | Save title / slug / draft |
 | POST | `/api/forms/:id/publish` | Immutable revision + pointer flip |
-| GET | `/api/forms/:id/submissions` | Cursor page + filters |
-| GET | `/api/forms/:id/submissions/export` | Streamed CSV |
+| GET | `/api/forms/:id/submissions` | Page + filters; returns `items`, `total`, `page`, `limit`, `pageCount` |
+| GET | `/api/forms/:id/submissions/export` | Streamed CSV (cursor batches) |
+| POST | `/api/ai/forms` | AI: create draft form from natural language |
+| POST | `/api/ai/forms/:id/edit` | AI: edit draft fields (Ask Copilot) |
 
 Public:
 
@@ -364,30 +369,33 @@ Publish is one database transaction: insert `form_versions`, set `published_vers
 
 ### Built (this repository)
 
-- React + Tailwind + Zustand visual editor: all listed field types, validation rules, required flag, help text, conditional visibility, reorder, draft save, publish, preview
-- Public form page rendered from the published JSON, with client validation and the same conditionals
-- Fastify REST as above
+- React + Tailwind + Zustand visual editor: field types, validation, required, help text, conditional visibility, reorder, themes, draft save, publish, preview
+- **Ask Copilot** in the editor and **AI Builder** chat to draft forms (Gemini preferred; OpenAI optional fallback)
+- Public form page from published JSON (`/f/:ownerId/:slug`), client validation, same conditionals; embed mode `?embed=true`
+- Share & embed after publish: public URL, iframe snippet, `/embed.js` loader
+- Fastify REST as in §10 (JWT-protected owner routes)
 - Zod re-derived from the published revision on the server
 - Honeypot + per-form Redis rate limiting
 - Redis cache of published definitions
-- BullMQ worker persisting submissions with `form_version_id` and idempotency
-- Prisma schema: `users`, `forms`, `form_versions`, `form_submissions`
-- Local run: Supabase Postgres + Redis for Windows (or Compose when Docker is available)
-- Cursor-paginated, filterable inbox and streamed CSV export
+- BullMQ worker (in-API and/or separate worker) persisting submissions with `form_version_id` and idempotency
+- Prisma schema: `users`, `forms`, `form_versions`, `form_submissions`; slugs unique per owner
+- Auth: email/password JWT + Supabase Google OAuth
+- Submissions **hub** (`/app/submissions`): card grid of real forms → per-form inbox
+- Inbox: **page-number pagination** with totals, revision/date filters, dynamic field columns, detail drawer, CSV export (cursor-streamed)
+- Local / cloud: Supabase Postgres + Redis (Upstash or local); web on Vercel, API on Render (see `docs/DEPLOY.md`)
 - Load generator (`npm run load:setup` / `npm run load`) against the public submit path
-- Automated tests: dynamic server validation (including show-if); submission integrity after republish
+- Automated tests: dynamic server validation (including show-if); submission integrity after republish; embed helpers
 
 ### Designed, not built
 
 - Full one-command `docker compose up --build` for all services (Compose file exists; optional when Docker is available)
 - Cloudflare CDN, WAF, bot management, CAPTCHA
 - Load balancer and autoscaling Fastify + worker replicas (scale on queue depth)
-- Hosted Supabase Auth, Row Level Security, point-in-time recovery
+- Hosted Supabase RLS, point-in-time recovery, org/team SSO
 - SQS or Kafka as the durable ingest bus (instead of Redis/BullMQ)
 - Postgres partitioning of `form_submissions`, read replicas
-- Async export to object storage for multi-million-row forms
+- Async export to object storage for multi-million-row forms; server-side full-text search across payloads
+- Pure cursor-only inbox UI if deep `OFFSET` pages become a bottleneck
 - Billing, teams, audit log, multi-region
-
-Built in this repo (beyond the original slice): JWT auth for the dashboard, and publish-time iframe / JavaScript embed (`/f/:ownerId/:slug?embed=true`, `/embed.js`).
 
 The slice exists to prove the core loop and the invariants. The designed pieces are how this same contract would run on the public internet at high scale.

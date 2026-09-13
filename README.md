@@ -4,7 +4,6 @@ Multi-tenant form builder: visual editor, immutable publish, public submit under
 
 ## Documents
 
-- [MY_UNDERSTANDING.md](./MY_UNDERSTANDING.md) — simple overview of everything we built (good to paste into ChatGPT)
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design (primary deliverable)
 - [TRADEOFFS.md](./TRADEOFFS.md) — three key decisions
 - [docs/DEPLOY.md](./docs/DEPLOY.md) — Vercel + Render production deploy
@@ -24,9 +23,11 @@ copy .env.example .env
 Set:
 
 - `DATABASE_URL` — Supabase Postgres URI (`?sslmode=require`)
-- `REDIS_URL` — `redis://localhost:6379`
+- `REDIS_URL` — `redis://localhost:6379` (production Upstash: `rediss://…`)
 - `JWT_SECRET` — long random string (required in production)
+- Optional AI: `GEMINI_API_KEY` (preferred) and/or `OPENAI_API_KEY` on the **API** host
 - Optional: `DEMO_OWNER_EMAIL` / `DEMO_OWNER_PASSWORD` for `npm run seed`
+- Optional web: `VITE_PUBLIC_WEB_URL` for embed snippet origins
 - Same `DATABASE_URL` in `packages/db/.env`
 
 ### 2. Database
@@ -56,11 +57,12 @@ npm run dev:web
 
 Open **http://localhost:5173** for the marketing landing page.  
 **Sign up** at `/signup` or **sign in** at `/signin`, then use **http://localhost:5173/app** (protected).  
+**Submissions hub:** `/app/submissions` → pick a form → `/forms/:id/submissions`.  
 Public forms stay open at `/f/:ownerId/:slug` (no login).
 
 Demo seed user (after `npm run seed`): `owner@example.com` / `password123` (override via env).
 
-Flow: sign up → create form → add fields → save → publish → share/embed → open `/f/:ownerId/:slug` → submit → view submissions.
+Flow: sign up → create form → add fields → save → publish → share/embed → open `/f/:ownerId/:slug` → submit → view submissions (hub or Inbox from the editor).
 
 ## Embedding a published form
 
