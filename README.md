@@ -88,17 +88,36 @@ npm test
 - Zod validation from a dynamic definition (including show-if)
 - Submission integrity after republish (needs reachable `DATABASE_URL`)
 - Embed URL / iframe / JavaScript snippet helpers
+- Load-test metric helpers (`npm run load:helpers:test`)
 
-## Load generator (burst submit)
+## Load tests (measurements)
 
-With API + worker + Redis running:
+With API + Redis + Postgres running (in-API worker is on by default):
 
 ```bash
 npm run load:setup
-npm run load -- --slug=YOUR_SLUG --concurrency=40 --requests=200
+npm run load -- --ownerId=OWNER_ID --slug=SLUG --concurrency=20 --requests=50
+npm run load:recovery -- --ownerId=OWNER_ID --slug=SLUG
+npm run load:volume -- --ownerId=OWNER_ID --slug=SLUG
+npm run load:persist-probe
 ```
 
-Expect many **202** responses. **429** means per-form rate limiting is working.
+Worker **process** crash (not queue pause). Ingest-only API, then the script starts/kills `apps/worker`:
+
+```bash
+IN_API_WORKER=false npm run dev:api
+npm run load:crash -- --ownerId=OWNER_ID --slug=SLUG
+```
+
+- **`load`** — HTTP totals, latency, throughput, then queue/DB drain time for that `runId`
+- **`load:recovery`** — pause BullMQ, enqueue, resume, **assert** accepted === persisted (exit 1 if not). This is not a crash.
+- **`load:crash`** — enqueue, kill the standalone worker process, restart it, **assert** accepted === persisted
+- **`load:volume`** — controlled 50/100/200 steps; records persist time (keep volumes small)
+- **`load:persist-probe`** — sequential vs parallel Prisma upsert timings (no HTTP)
+
+Default `RATE_LIMIT_PER_MINUTE=60`; extra requests return **429**. Raise that env **locally** to measure ingest rather than the limiter. Do not run these against production. `SUBMIT_WORKER_CONCURRENCY` (default 4) overlaps Postgres round trips; persist is still far slower than HTTP ingest.
+
+How to interpret output: [docs/LOAD_TEST_RESULTS.md](./docs/LOAD_TEST_RESULTS.md). Fill the result tables only with numbers from a run you actually performed.
 
 ## Stack
 

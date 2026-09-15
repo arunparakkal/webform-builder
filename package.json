@@ -10,7 +10,7 @@
     "db:migrate": "npm run migrate -w @webform/db",
     "db:migrate:deploy": "npm run migrate:deploy -w @webform/db",
     "db:up": "docker compose up -d postgres",
-    "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api && npm run test -w @webform/web",
+    "test": "npm run test -w @webform/form-schema && npm run test -w @webform/api && npm run test -w @webform/web && npm run load:helpers:test",
     "test:form-schema": "npm run test -w @webform/form-schema",
     "test:api": "npm run test -w @webform/api",
     "test:web": "npm run test -w @webform/web",
@@ -20,7 +20,12 @@
     "dev:web": "npm run dev -w @webform/web",
     "seed": "npm run seed -w @webform/api",
     "load:setup": "node scripts/load/setup.mjs",
-    "load": "node scripts/load/burst.mjs"
+    "load": "node scripts/load/burst.mjs",
+    "load:recovery": "node scripts/load/recovery.mjs",
+    "load:crash": "node scripts/load/crash.mjs",
+    "load:volume": "node scripts/load/volume.mjs",
+    "load:persist-probe": "node scripts/load/persist-probe.mjs",
+    "load:helpers:test": "node --test scripts/load/helpers.test.mjs"
   },
   "engines": {
     "node": ">=20"

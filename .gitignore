@@ -11,3 +11,4 @@ coverage/
 .prisma/client
 apps/**/dist
 packages/**/dist
+scripts/load/results/*.json

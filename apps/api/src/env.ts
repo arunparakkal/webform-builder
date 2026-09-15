@@ -46,6 +46,17 @@ const envSchema = z.object({
   RATE_LIMIT_PER_MINUTE: z.coerce.number().default(60),
   /** Cap total public submits across all forms owned by one tenant per minute. */
   RATE_LIMIT_OWNER_PER_MINUTE: z.coerce.number().default(180),
+  /**
+   * Run BullMQ inside the API process (Render free tier).
+   * Set `false` to ingest-only so a standalone worker can be crashed independently.
+   */
+  IN_API_WORKER: z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .default("true")
+    .transform((v) => v === "true" || v === "1"),
+  /** Parallel BullMQ job processors (each job is one Prisma upsert). */
+  SUBMIT_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   SUPABASE_URL: z.string().optional().default(""),
   SUPABASE_ANON_KEY: z.string().optional().default(""),
   /** Preferred free-tier provider for AI form builder (Google AI Studio). */

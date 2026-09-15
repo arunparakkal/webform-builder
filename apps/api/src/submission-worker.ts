@@ -7,7 +7,7 @@ import { SUBMISSION_QUEUE_NAME, type SubmissionJobData } from "./queue.js";
  * Run the BullMQ submission consumer inside the API process.
  * Needed on Render free tier (background workers are not available).
  */
-export function startSubmissionWorker(redisUrl: string) {
+export function startSubmissionWorker(redisUrl: string, concurrency = 4) {
   const connection = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
@@ -33,17 +33,21 @@ export function startSubmissionWorker(redisUrl: string) {
         update: {},
       });
     },
-    { connection },
+    { connection, concurrency },
   );
 
-  worker.on("completed", (job) => {
-    console.log(`stored submission ${job.id}`);
+  let completed = 0;
+  worker.on("completed", () => {
+    completed += 1;
+    if (completed === 1 || completed % 50 === 0) {
+      console.log(`stored submissions: ${completed}`);
+    }
   });
   worker.on("failed", (job, err) => {
     console.error(`failed submission ${job?.id}:`, err.message);
   });
 
-  console.log("submission worker listening (in-api)");
+  console.log(`submission worker listening (in-api) concurrency=${concurrency}`);
 
   return {
     async close() {

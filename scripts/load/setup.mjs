@@ -85,6 +85,7 @@ if (!patchRes.ok) {
 const publishRes = await fetch(`${base}/api/forms/${form.id}/publish`, {
   method: "POST",
   headers: authHeaders,
+  body: "{}",
 });
 if (!publishRes.ok) {
   console.error("publish failed", publishRes.status, await publishRes.text());
@@ -94,4 +95,7 @@ if (!publishRes.ok) {
 const published = await publishRes.json();
 console.log(JSON.stringify({ slug, formId: form.id, ownerId: published.ownerId ?? form.ownerId, ...published }, null, 2));
 const oid = published.ownerId ?? form.ownerId;
-console.log(`\nRun burst:\n  npm run load -- --ownerId=${oid} --slug=${slug} --concurrency=40 --requests=200`);
+console.log(`\nRun measurements (keep requests at or under RATE_LIMIT_PER_MINUTE, or raise that env locally):
+  npm run load -- --ownerId=${oid} --slug=${slug} --concurrency=20 --requests=50
+  npm run load:recovery -- --ownerId=${oid} --slug=${slug}
+  npm run load:volume -- --ownerId=${oid} --slug=${slug}`);
