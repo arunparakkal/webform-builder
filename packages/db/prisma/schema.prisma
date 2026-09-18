@@ -46,6 +46,7 @@ model Form {
 
   versions    FormVersion[]     @relation("FormVersions")
   submissions FormSubmission[]
+  hourlyStats FormHourlyStat[]
 
   @@unique([ownerId, slug])
   @@index([ownerId])
@@ -87,4 +88,19 @@ model FormSubmission {
   @@index([formId, createdAt(sort: Desc)])
   @@index([formVersionId])
   @@map("form_submissions")
+}
+
+/// Live submission counts per form per one-hour UTC window.
+/// The worker increments on first persist; replayed jobs do not count twice.
+model FormHourlyStat {
+  formId String @map("form_id") @db.Uuid
+  form   Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  windowStart     DateTime @map("window_start")
+  windowEnd       DateTime @map("window_end")
+  submissionCount BigInt   @default(0) @map("submission_count")
+  updatedAt       DateTime @default(now()) @map("updated_at")
+
+  @@id([formId, windowStart])
+  @@map("form_hourly_stats")
 }

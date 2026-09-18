@@ -1,8 +1,18 @@
 import type { FormDefinition, FormField } from "@webform/form-schema";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type FormDetail, type SubmissionItem } from "../api/client";
+import {
+  api,
+  type FormDetail,
+  type HourlyStatsResponse,
+  type SubmissionItem,
+} from "../api/client";
+import { HourlyVolumeChart } from "../components/HourlyVolumeChart";
+import { KeyedHourlyStateList } from "../components/KeyedHourlyStateList";
 import { formatDate } from "../lib/fields";
+
+const CHART_HOURS = 24;
+const STATS_POLL_MS = 15_000;
 
 /** Convert datetime-local value to ISO for the API (`z.string().datetime()`). */
 function localToIso(value: string): string | undefined {
@@ -83,6 +93,7 @@ export function SubmissionsPage() {
   const [pageCount, setPageCount] = useState(0);
   const [weekCount, setWeekCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
+  const [hourly, setHourly] = useState<HourlyStatsResponse | null>(null);
   const [revisionFilter, setRevisionFilter] = useState<string>("");
   const [fromLocal, setFromLocal] = useState("");
   const [toLocal, setToLocal] = useState("");
@@ -133,6 +144,14 @@ export function SubmissionsPage() {
     setTodayCount(todayRes.total);
   }
 
+  async function loadHourly() {
+    try {
+      setHourly(await api.hourlyStats(id, { hours: CHART_HOURS }));
+    } catch {
+      // Inbox must still load if the stats endpoint is down.
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -145,6 +164,8 @@ export function SubmissionsPage() {
         if (cancelled) return;
         setForm(detail);
         await Promise.all([loadPage(1), loadStats()]);
+        if (cancelled) return;
+        await loadHourly();
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load submissions");
       } finally {
@@ -156,6 +177,17 @@ export function SubmissionsPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, revisionFilter, fromLocal, toLocal]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void api
+        .hourlyStats(id, { hours: CHART_HOURS })
+        .then(setHourly)
+        // A failed poll must not disturb the page; the next tick retries.
+        .catch(() => undefined);
+    }, STATS_POLL_MS);
+    return () => clearInterval(timer);
+  }, [id]);
 
   async function goToPage(next: number) {
     if (next < 1 || (pageCount > 0 && next > pageCount) || next === page) return;
@@ -287,6 +319,17 @@ export function SubmissionsPage() {
             <p className="text-lg font-semibold text-[#0F172A]">{todayCount}</p>
           </div>
         </div>
+
+        <HourlyVolumeChart stats={hourly} hours={CHART_HOURS} loading={loading} />
+        <KeyedHourlyStateList
+          rows={(hourly?.buckets ?? [])
+            .filter((b) => b.count > 0)
+            .map((b) => ({
+              formTitle: form?.title ?? "form",
+              windowStart: b.windowStart,
+              count: b.count,
+            }))}
+        />
       </div>
 
       <div className="flex min-w-0 gap-4">

@@ -1,7 +1,8 @@
 import { resolveFormTheme, type FormDefinition } from "@webform/form-schema";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type FormSummary } from "../api/client";
+import { api, type FormSummary, type KeyedHourlyStatsResponse } from "../api/client";
+import { KeyedHourlyStateList } from "../components/KeyedHourlyStateList";
 import { FormRenderer } from "../components/FormRenderer";
 import { pageSurfaceStyle } from "../lib/formThemes";
 
@@ -18,6 +19,7 @@ function previewDefinition(form: FormSummary): FormDefinition | null {
 
 export function SubmissionsHubPage() {
   const [forms, setForms] = useState<FormSummary[]>([]);
+  const [keyed, setKeyed] = useState<KeyedHourlyStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -29,6 +31,8 @@ export function SubmissionsHubPage() {
         setLoading(true);
         const data = await api.listForms();
         if (!cancelled) setForms(data);
+        const stats = await api.keyedHourlyStats({ hours: 48 }).catch(() => null);
+        if (!cancelled) setKeyed(stats);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load forms");
       } finally {
@@ -55,7 +59,7 @@ export function SubmissionsHubPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-white">Submissions</h1>
             <p className="mt-1 text-sm text-white/65">
-              Choose a form to open its inbox. Columns match that form’s fields.
+              Choose a form to open its inbox. Live hourly totals are keyed by form + hour.
             </p>
           </div>
           <label className="relative block w-full max-w-sm">
@@ -79,6 +83,16 @@ export function SubmissionsHubPage() {
             {error}
           </p>
         ) : null}
+
+        <KeyedHourlyStateList
+          tone="dark"
+          rows={(keyed?.keys ?? []).map((k) => ({
+            formId: k.formId,
+            formTitle: k.formTitle,
+            windowStart: k.windowStart,
+            count: k.count,
+          }))}
+        />
 
         {loading ? (
           <p className="text-sm text-white/60">Loading your forms…</p>

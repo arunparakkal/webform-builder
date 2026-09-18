@@ -44,6 +44,30 @@ export type SubmissionsResponse = {
   nextCursor: string | null;
 };
 
+export type HourlyStatsResponse = {
+  formId: string;
+  from: string;
+  to: string;
+  /** One entry per hour that had at least one submission. Bounds are UTC. */
+  buckets: Array<{ windowStart: string; windowEnd: string; count: number }>;
+  total: number;
+  updatedAt: string | null;
+};
+
+/** Flink-style keyed state: (form, hour) → count */
+export type KeyedHourlyStatsResponse = {
+  from: string;
+  to: string;
+  keys: Array<{
+    formId: string;
+    formTitle: string;
+    formSlug: string;
+    windowStart: string;
+    windowEnd: string;
+    count: number;
+  }>;
+};
+
 export type PublishedForm = {
   ownerId: string;
   slug: string;
@@ -205,6 +229,24 @@ export const api = {
     if (params.to) query.set("to", params.to);
     const qs = query.toString();
     return request<SubmissionsResponse>(`/api/forms/${id}/submissions${qs ? `?${qs}` : ""}`);
+  },
+
+  hourlyStats: (id: string, params?: { hours?: number; from?: string; to?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.hours) query.set("hours", String(params.hours));
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const qs = query.toString();
+    return request<HourlyStatsResponse>(`/api/forms/${id}/stats/hourly${qs ? `?${qs}` : ""}`);
+  },
+
+  keyedHourlyStats: (params?: { hours?: number; from?: string; to?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.hours) query.set("hours", String(params.hours));
+    if (params?.from) query.set("from", params.from);
+    if (params?.to) query.set("to", params.to);
+    const qs = query.toString();
+    return request<KeyedHourlyStatsResponse>(`/api/stats/hourly${qs ? `?${qs}` : ""}`);
   },
 
   exportSubmissions: async (

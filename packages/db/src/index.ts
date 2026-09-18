@@ -13,4 +13,16 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export { PrismaClient, Prisma } from "@prisma/client";
-export type { User, Form, FormVersion, FormSubmission, FormStatus } from "@prisma/client";
+export {
+  persistSubmission,
+  type PersistSubmissionInput,
+  type PersistSubmissionResult,
+} from "./submissions.js";
+export type {
+  User,
+  Form,
+  FormVersion,
+  FormSubmission,
+  FormHourlyStat,
+  FormStatus,
+} from "@prisma/client";

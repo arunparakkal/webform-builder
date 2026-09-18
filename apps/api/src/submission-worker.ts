@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { prisma, type Prisma } from "@webform/db";
+import { persistSubmission, prisma, type Prisma } from "@webform/db";
 import { Redis } from "ioredis";
 import { SUBMISSION_QUEUE_NAME, type SubmissionJobData } from "./queue.js";
 
@@ -22,16 +22,15 @@ export function startSubmissionWorker(redisUrl: string, concurrency = 4) {
     SUBMISSION_QUEUE_NAME,
     async (job) => {
       const { formId, formVersionId, payload, idempotencyKey } = job.data;
-      await prisma.formSubmission.upsert({
-        where: { idempotencyKey },
-        create: {
-          formId,
-          formVersionId,
-          payload: payload as Prisma.InputJsonValue,
-          idempotencyKey,
-        },
-        update: {},
+      const { stored } = await persistSubmission(prisma, {
+        formId,
+        formVersionId,
+        payload: payload as Prisma.InputJsonValue,
+        idempotencyKey,
       });
+      if (!stored) {
+        console.log(`duplicate submission ignored ${idempotencyKey}`);
+      }
     },
     { connection, concurrency },
   );

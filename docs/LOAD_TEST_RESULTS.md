@@ -6,6 +6,8 @@ These tests measure the **existing** public submit path:
 
 They do **not** invent performance numbers. Copy numbers into the tables below only from a run you performed. JSON reports are written to `scripts/load/results/` (gitignored).
 
+For a plain-language explanation of queue vs persist vs hourly counts, see [VOLUME_HANDLING.md](./VOLUME_HANDLING.md).
+
 ## Prerequisites
 
 1. API + Redis + Postgres running (`npm run dev:api`; Redis local or `REDIS_URL`).

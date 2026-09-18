@@ -6,6 +6,8 @@ Multi-tenant form builder: visual editor, immutable publish, public submit under
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design (primary deliverable)
 - [TRADEOFFS.md](./TRADEOFFS.md) — three key decisions
+- [docs/FLINK_ARCHITECTURE.md](./docs/FLINK_ARCHITECTURE.md) — Flink live hourly analytics architecture
+- [docs/FLINK_VOLUME_HANDLING.md](./docs/FLINK_VOLUME_HANDLING.md) — how Flink handles high-volume per-form, per-hour aggregation
 - [docs/DEPLOY.md](./docs/DEPLOY.md) — Vercel + Render production deploy
 - [docs/SUPABASE.md](./docs/SUPABASE.md) — Postgres
 - [docs/REDIS.md](./docs/REDIS.md) — Redis without Docker
@@ -57,7 +59,7 @@ npm run dev:web
 
 Open **http://localhost:5173** for the marketing landing page.  
 **Sign up** at `/signup` or **sign in** at `/signin`, then use **http://localhost:5173/app** (protected).  
-**Submissions hub:** `/app/submissions` → pick a form → `/forms/:id/submissions`.  
+**Submissions hub:** `/app/submissions` → pick a form → `/forms/:id/submissions` (inbox + live hourly chart).  
 Public forms stay open at `/f/:ownerId/:slug` (no login).
 
 Demo seed user (after `npm run seed`): `owner@example.com` / `password123` (override via env).
@@ -87,6 +89,7 @@ npm test
 
 - Zod validation from a dynamic definition (including show-if)
 - Submission integrity after republish (needs reachable `DATABASE_URL`)
+- Hourly aggregation: new insert counts once; replayed idempotency key does not (needs `DATABASE_URL`)
 - Embed URL / iframe / JavaScript snippet helpers
 - Load-test metric helpers (`npm run load:helpers:test`)
 
@@ -117,7 +120,8 @@ npm run load:crash -- --ownerId=OWNER_ID --slug=SLUG
 
 Default `RATE_LIMIT_PER_MINUTE=60`; extra requests return **429**. Raise that env **locally** to measure ingest rather than the limiter. Do not run these against production. `SUBMIT_WORKER_CONCURRENCY` (default 4) overlaps Postgres round trips; persist is still far slower than HTTP ingest.
 
-How to interpret output: [docs/LOAD_TEST_RESULTS.md](./docs/LOAD_TEST_RESULTS.md). Fill the result tables only with numbers from a run you actually performed.
+How to interpret output: [docs/LOAD_TEST_RESULTS.md](./docs/LOAD_TEST_RESULTS.md).  
+How Flink handles live hourly volume (stream, keyed totals, crash recovery): [docs/FLINK_VOLUME_HANDLING.md](./docs/FLINK_VOLUME_HANDLING.md).
 
 ## Stack
 

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "bullmq";
-import { prisma, type Prisma } from "@webform/db";
+import { persistSubmission, prisma, type Prisma } from "@webform/db";
 import { Redis } from "ioredis";
 
 const SUBMISSION_QUEUE_NAME = "form-submissions";
@@ -59,16 +59,15 @@ async function main() {
     SUBMISSION_QUEUE_NAME,
     async (job) => {
       const { formId, formVersionId, payload, idempotencyKey } = job.data;
-      await prisma.formSubmission.upsert({
-        where: { idempotencyKey },
-        create: {
-          formId,
-          formVersionId,
-          payload: payload as Prisma.InputJsonValue,
-          idempotencyKey,
-        },
-        update: {},
+      const { stored } = await persistSubmission(prisma, {
+        formId,
+        formVersionId,
+        payload: payload as Prisma.InputJsonValue,
+        idempotencyKey,
       });
+      if (!stored) {
+        console.log(`duplicate submission ignored ${idempotencyKey}`);
+      }
     },
     { connection, concurrency },
   );

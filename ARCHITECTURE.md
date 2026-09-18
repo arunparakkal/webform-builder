@@ -280,6 +280,20 @@ Unique `(form_id, revision)`.
 
 Index `(form_id, created_at DESC)` for pagination and export. Index `form_version_id`.
 
+### `form_hourly_stats`
+
+Live counts **per form, per UTC hour**. The inbox chart reads this table, not a `COUNT(*)` over every submission row.
+
+| Column | Purpose |
+|---|---|
+| `form_id` | FK → `forms.id` (CASCADE) |
+| `window_start` | Hour start (UTC) |
+| `window_end` | `window_start + 1 hour` (CHECK-enforced) |
+| `submission_count` | BIGINT running total |
+| `updated_at` | Last increment (DB trigger) |
+
+Primary key `(form_id, window_start)`. The worker bumps the count **only when a new submission row is inserted**, so a retried BullMQ job does not double-count.
+
 ### Why JSONB (not a column per field, not Mongo as primary)
 
 Field sets change per publish. `ALTER TABLE` for every new phone field cannot work. Mongo would store flexible documents, but tenants, immutable versions, and “this submission belongs to this frozen revision” are relational integrity problems. Postgres JSONB gives flexibility **and** foreign keys / transactions.
@@ -351,6 +365,7 @@ Owner (always scoped by `owner_id` / JWT):
 | POST | `/api/forms/:id/publish` | Immutable revision + pointer flip |
 | GET | `/api/forms/:id/submissions` | Page + filters; returns `items`, `total`, `page`, `limit`, `pageCount` |
 | GET | `/api/forms/:id/submissions/export` | Streamed CSV (cursor batches) |
+| GET | `/api/forms/:id/stats/hourly` | Pre-aggregated hourly counts (`hours` / `from` / `to`) |
 | POST | `/api/ai/forms` | AI: create draft form from natural language |
 | POST | `/api/ai/forms/:id/edit` | AI: edit draft fields (Ask Copilot) |
 
@@ -378,7 +393,8 @@ Publish is one database transaction: insert `form_versions`, set `published_vers
 - Honeypot + per-form Redis rate limiting
 - Redis cache of published definitions
 - BullMQ worker (in-API and/or separate worker) persisting submissions with `form_version_id` and idempotency
-- Prisma schema: `users`, `forms`, `form_versions`, `form_submissions`; slugs unique per owner
+- Hourly volume table `form_hourly_stats`, incremented in the same persist transaction; inbox chart polls `/api/forms/:id/stats/hourly`
+- Prisma schema: `users`, `forms`, `form_versions`, `form_submissions`, `form_hourly_stats`; slugs unique per owner
 - Auth: email/password JWT + Supabase Google OAuth
 - Submissions **hub** (`/app/submissions`): card grid of real forms → per-form inbox
 - Inbox: **page-number pagination** with totals, revision/date filters, dynamic field columns, detail drawer, CSV export (cursor-streamed)
