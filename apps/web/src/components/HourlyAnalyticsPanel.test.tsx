@@ -11,11 +11,11 @@ describe("HourlyAnalyticsPanel", () => {
     expect(html).not.toContain("No hourly aggregates yet");
   });
 
-  it("shows an empty state when the API returns no hours", () => {
+  it("hides the panel when the API returns no hours", () => {
     const html = renderToStaticMarkup(
       <HourlyAnalyticsPanel data={[]} loading={false} error={null} />,
     );
-    expect(html).toContain("No hourly aggregates yet");
+    expect(html).toBe("");
   });
 
   it("shows API errors without hiding the message", () => {

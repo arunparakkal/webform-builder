@@ -20,7 +20,9 @@ export function HourlyAnalyticsPanel({
   const rows = data ?? [];
   const buckets = analyticsToBuckets(rows);
   const hasRows = rows.length > 0;
-  const empty = !loading && !error && !hasRows;
+  if (!loading && !error && !hasRows) {
+    return null;
+  }
 
   return (
     <section
@@ -47,12 +49,6 @@ export function HourlyAnalyticsPanel({
           className="mt-3 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-sm text-[#DC2626]"
         >
           {error}
-        </p>
-      ) : null}
-
-      {empty ? (
-        <p className="mt-4 rounded-lg border border-dashed border-[#E5E7EB] bg-[#F8FAFC] px-4 py-8 text-center text-sm text-[#64748B]">
-          No hourly aggregates yet. New submissions appear here after they are counted by hour.
         </p>
       ) : null}
 
