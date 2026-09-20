@@ -4,12 +4,12 @@ import { Link, useParams } from "react-router-dom";
 import {
   api,
   type FormDetail,
-  type HourlyStatsResponse,
+  type HourlyAnalyticsResponse,
   type SubmissionItem,
 } from "../api/client";
-import { HourlyVolumeChart } from "../components/HourlyVolumeChart";
-import { KeyedHourlyStateList } from "../components/KeyedHourlyStateList";
+import { HourlyAnalyticsPanel } from "../components/HourlyAnalyticsPanel";
 import { formatDate } from "../lib/fields";
+import { hourlyChartWindow, resolveHourlyAnalyticsQuery } from "../lib/hourlyAnalytics";
 
 const CHART_HOURS = 24;
 const STATS_POLL_MS = 15_000;
@@ -93,7 +93,9 @@ export function SubmissionsPage() {
   const [pageCount, setPageCount] = useState(0);
   const [weekCount, setWeekCount] = useState(0);
   const [todayCount, setTodayCount] = useState(0);
-  const [hourly, setHourly] = useState<HourlyStatsResponse | null>(null);
+  const [hourly, setHourly] = useState<HourlyAnalyticsResponse | null>(null);
+  const [hourlyLoading, setHourlyLoading] = useState(true);
+  const [hourlyError, setHourlyError] = useState<string | null>(null);
   const [revisionFilter, setRevisionFilter] = useState<string>("");
   const [fromLocal, setFromLocal] = useState("");
   const [toLocal, setToLocal] = useState("");
@@ -144,14 +146,6 @@ export function SubmissionsPage() {
     setTodayCount(todayRes.total);
   }
 
-  async function loadHourly() {
-    try {
-      setHourly(await api.hourlyStats(id, { hours: CHART_HOURS }));
-    } catch {
-      // Inbox must still load if the stats endpoint is down.
-    }
-  }
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -164,8 +158,6 @@ export function SubmissionsPage() {
         if (cancelled) return;
         setForm(detail);
         await Promise.all([loadPage(1), loadStats()]);
-        if (cancelled) return;
-        await loadHourly();
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load submissions");
       } finally {
@@ -179,15 +171,42 @@ export function SubmissionsPage() {
   }, [id, revisionFilter, fromLocal, toLocal]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      void api
-        .hourlyStats(id, { hours: CHART_HOURS })
-        .then(setHourly)
-        // A failed poll must not disturb the page; the next tick retries.
-        .catch(() => undefined);
-    }, STATS_POLL_MS);
-    return () => clearInterval(timer);
-  }, [id]);
+    let cancelled = false;
+
+    async function refresh(isPoll: boolean) {
+      try {
+        if (!isPoll) {
+          setHourlyLoading(true);
+          setHourly(null);
+          setHourlyError(null);
+        }
+        const result = await api.hourlyAnalytics(
+          id,
+          resolveHourlyAnalyticsQuery({
+            start: localToIso(fromLocal),
+            end: localToIso(toLocal),
+            hours: CHART_HOURS,
+          }),
+        );
+        if (cancelled) return;
+        setHourly(result);
+        setHourlyError(null);
+      } catch (err) {
+        if (!cancelled) {
+          setHourlyError(err instanceof Error ? err.message : "Failed to load hourly analytics");
+        }
+      } finally {
+        if (!cancelled && !isPoll) setHourlyLoading(false);
+      }
+    }
+
+    void refresh(false);
+    const timer = setInterval(() => void refresh(true), STATS_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [id, fromLocal, toLocal]);
 
   async function goToPage(next: number) {
     if (next < 1 || (pageCount > 0 && next > pageCount) || next === page) return;
@@ -240,6 +259,10 @@ export function SubmissionsPage() {
 
   const revisions = form?.versions ?? [];
   const isPublished = form?.status === "published";
+  const chartWindow = hourlyChartWindow(
+    { start: localToIso(fromLocal), end: localToIso(toLocal) },
+    CHART_HOURS,
+  );
 
   const inputClass =
     "mt-1 block w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15";
@@ -319,18 +342,15 @@ export function SubmissionsPage() {
             <p className="text-lg font-semibold text-[#0F172A]">{todayCount}</p>
           </div>
         </div>
-
-        <HourlyVolumeChart stats={hourly} hours={CHART_HOURS} loading={loading} />
-        <KeyedHourlyStateList
-          rows={(hourly?.buckets ?? [])
-            .filter((b) => b.count > 0)
-            .map((b) => ({
-              formTitle: form?.title ?? "form",
-              windowStart: b.windowStart,
-              count: b.count,
-            }))}
-        />
       </div>
+
+      <HourlyAnalyticsPanel
+        data={hourly?.data ?? null}
+        hours={chartWindow.hours}
+        now={chartWindow.now}
+        loading={hourlyLoading}
+        error={hourlyError}
+      />
 
       <div className="flex min-w-0 gap-4">
         <div className="min-w-0 flex-1 space-y-4">

@@ -12,3 +12,5 @@ coverage/
 apps/**/dist
 packages/**/dist
 scripts/load/results/*.json
+flink-job/target/
+flink-job/.idea/

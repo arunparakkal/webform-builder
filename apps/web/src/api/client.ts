@@ -1,5 +1,6 @@
 import type { FormDefinition } from "@webform/form-schema";
 import { getAuthToken, useAuthStore, type AuthUser } from "../store/authStore";
+import { hourlyAnalyticsPath } from "../lib/hourlyAnalytics";
 
 export type FormSummary = {
   id: string;
@@ -66,6 +67,18 @@ export type KeyedHourlyStatsResponse = {
     windowEnd: string;
     count: number;
   }>;
+};
+
+/** Flink hourly aggregates from GET /api/forms/:formId/analytics/hourly */
+export type HourlyAnalyticsRow = {
+  windowStart: string;
+  windowEnd: string;
+  submissionCount: number;
+};
+
+export type HourlyAnalyticsResponse = {
+  formId: string;
+  data: HourlyAnalyticsRow[];
 };
 
 export type PublishedForm = {
@@ -239,6 +252,9 @@ export const api = {
     const qs = query.toString();
     return request<HourlyStatsResponse>(`/api/forms/${id}/stats/hourly${qs ? `?${qs}` : ""}`);
   },
+
+  hourlyAnalytics: (formId: string, params?: { start?: string; end?: string }) =>
+    request<HourlyAnalyticsResponse>(hourlyAnalyticsPath(formId, params)),
 
   keyedHourlyStats: (params?: { hours?: number; from?: string; to?: string }) => {
     const query = new URLSearchParams();

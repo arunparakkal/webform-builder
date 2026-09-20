@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { persistSubmission, prisma, type Prisma } from "@webform/db";
 import { Redis } from "ioredis";
 import { SUBMISSION_QUEUE_NAME, type SubmissionJobData } from "./queue.js";
+import { emitSubmissionEvent } from "./submission-events.js";
 
 /**
  * Run the BullMQ submission consumer inside the API process.
@@ -22,15 +23,22 @@ export function startSubmissionWorker(redisUrl: string, concurrency = 4) {
     SUBMISSION_QUEUE_NAME,
     async (job) => {
       const { formId, formVersionId, payload, idempotencyKey } = job.data;
-      const { stored } = await persistSubmission(prisma, {
+      const persisted = await persistSubmission(prisma, {
         formId,
         formVersionId,
         payload: payload as Prisma.InputJsonValue,
         idempotencyKey,
       });
-      if (!stored) {
+      if (!persisted.stored) {
         console.log(`duplicate submission ignored ${idempotencyKey}`);
       }
+      // Always emit: a retry after a failed XADD must not drop the event.
+      // Flink dedups by submissionId. Persist skipDuplicates prevents a second row.
+      await emitSubmissionEvent(connection, {
+        submissionId: persisted.submissionId,
+        formId: persisted.formId,
+        submittedAt: persisted.submittedAt,
+      });
     },
     { connection, concurrency },
   );

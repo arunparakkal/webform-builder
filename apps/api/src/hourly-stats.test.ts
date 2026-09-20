@@ -14,7 +14,7 @@ async function canReachDatabase(): Promise<boolean> {
   }
 }
 
-describe("hourly submission aggregation", () => {
+describe("submission persist for Flink analytics", () => {
   const email = `stats-${randomUUID()}@example.com`;
   let ownerId = "";
   let dbReady = false;
@@ -30,7 +30,7 @@ describe("hourly submission aggregation", () => {
     await prisma.$disconnect().catch(() => undefined);
   });
 
-  it("counts each submission once, even when the job is replayed", async ({ skip }) => {
+  it("stores each submission once and leaves hourly stats to Flink", async ({ skip }) => {
     if (!dbReady) {
       skip("DATABASE_URL not reachable — start Postgres/Supabase to run this test");
     }
@@ -76,21 +76,13 @@ describe("hourly submission aggregation", () => {
       idempotencyKey: firstKey,
     });
     expect(first.stored).toBe(true);
+    expect(first.submissionId).toBeTruthy();
+    expect(first.formId).toBe(form.id);
+    expect(first.submittedAt).toBeInstanceOf(Date);
 
-    const buckets = await prisma.formHourlyStat.findMany({ where: { formId: form.id } });
-    expect(buckets).toHaveLength(1);
-    expect(Number(buckets[0]!.submissionCount)).toBe(1);
+    // Flink (not the worker) writes form_hourly_stats.
+    expect(await prisma.formHourlyStat.count({ where: { formId: form.id } })).toBe(0);
 
-    // Window bounds must be exactly one hour and align to the stored row's hour.
-    const bucket = buckets[0]!;
-    expect(bucket.windowEnd.getTime() - bucket.windowStart.getTime()).toBe(3_600_000);
-    const stored = await prisma.formSubmission.findUniqueOrThrow({
-      where: { idempotencyKey: firstKey },
-    });
-    expect(stored.createdAt.getTime()).toBeGreaterThanOrEqual(bucket.windowStart.getTime());
-    expect(stored.createdAt.getTime()).toBeLessThan(bucket.windowEnd.getTime());
-
-    // Replaying the same job must not insert a row or bump the count.
     const replay = await persistSubmission(prisma, {
       formId: form.id,
       formVersionId: published.version.id,
@@ -98,13 +90,10 @@ describe("hourly submission aggregation", () => {
       idempotencyKey: firstKey,
     });
     expect(replay.stored).toBe(false);
-
+    expect(replay.submissionId).toBe(first.submissionId);
+    expect(replay.submittedAt.getTime()).toBe(first.submittedAt.getTime());
     expect(await prisma.formSubmission.count({ where: { formId: form.id } })).toBe(1);
-    const afterReplay = await prisma.formHourlyStat.findMany({ where: { formId: form.id } });
-    expect(afterReplay).toHaveLength(1);
-    expect(Number(afterReplay[0]!.submissionCount)).toBe(1);
 
-    // A genuinely new submission in the same hour increments the same bucket.
     const second = await persistSubmission(prisma, {
       formId: form.id,
       formVersionId: published.version.id,
@@ -112,38 +101,9 @@ describe("hourly submission aggregation", () => {
       idempotencyKey: randomUUID(),
     });
     expect(second.stored).toBe(true);
-
-    const afterSecond = await prisma.formHourlyStat.findMany({ where: { formId: form.id } });
-    expect(afterSecond).toHaveLength(1);
-    expect(Number(afterSecond[0]!.submissionCount)).toBe(2);
-    expect(afterSecond[0]!.updatedAt.getTime()).toBeGreaterThanOrEqual(
-      bucket.updatedAt.getTime(),
-    );
-
-    // Crash mid-stream: persist + count is one transaction. If the job is replayed
-    // after a worker death, both tables stay at the same totals.
-    const crashKey = randomUUID();
-    const beforeCrashRows = await prisma.formSubmission.count({ where: { formId: form.id } });
-    await persistSubmission(prisma, {
-      formId: form.id,
-      formVersionId: published.version.id,
-      payload: { email: "c@example.com" },
-      idempotencyKey: crashKey,
-    });
-    const afterCrash = await persistSubmission(prisma, {
-      formId: form.id,
-      formVersionId: published.version.id,
-      payload: { email: "c@example.com" },
-      idempotencyKey: crashKey,
-    });
-    expect(afterCrash.stored).toBe(false);
-    expect(await prisma.formSubmission.count({ where: { formId: form.id } })).toBe(
-      beforeCrashRows + 1,
-    );
-    expect(Number((await prisma.formHourlyStat.findMany({ where: { formId: form.id } }))[0]!.submissionCount)).toBe(3);
-
-    // Deleting the form cascades the aggregates away.
-    await prisma.form.delete({ where: { id: form.id } });
+    expect(await prisma.formSubmission.count({ where: { formId: form.id } })).toBe(2);
     expect(await prisma.formHourlyStat.count({ where: { formId: form.id } })).toBe(0);
+
+    await prisma.form.delete({ where: { id: form.id } });
   });
 });

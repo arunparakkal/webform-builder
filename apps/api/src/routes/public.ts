@@ -123,6 +123,8 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
 
     const idempotencyKey = body.data.idempotencyKey ?? randomUUID();
 
+    // Persist via BullMQ. Flink reads Redis Stream after the worker stores the row.
+    // HTTP does not wait for analytics.
     await queue.add(
       "persist",
       {

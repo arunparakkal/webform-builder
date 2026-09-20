@@ -91,7 +91,7 @@ model FormSubmission {
 }
 
 /// Live submission counts per form per one-hour UTC window.
-/// The worker increments on first persist; replayed jobs do not count twice.
+/// Written by the Flink job (absolute upsert). Replays overwrite the same PK.
 model FormHourlyStat {
   formId String @map("form_id") @db.Uuid
   form   Form   @relation(fields: [formId], references: [id], onDelete: Cascade)

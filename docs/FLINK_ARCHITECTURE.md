@@ -1,8 +1,10 @@
 # Flink Architecture — Live Hourly Submission Analytics
 
-This document describes the completed Apache Flink pipeline for **live counts and stats per form, per hour**, updating continuously as submissions stream in at high volume.
+This document describes the **implemented** Apache Flink 1.19 pipeline for live counts per form, per hour.
 
-No Kafka. Submissions remain the product’s source of truth in PostgreSQL; Flink derives analytics.
+No Kafka. Submissions remain the product’s source of truth in PostgreSQL. Flink derives analytics from Redis Stream `submission-events` after persist. Flink does **not** poll `form_submissions`.
+
+How volume, windows, and crashes are handled: [FLINK_VOLUME_HANDLING.md](./FLINK_VOLUME_HANDLING.md).
 
 ---
 
@@ -11,27 +13,24 @@ No Kafka. Submissions remain the product’s source of truth in PostgreSQL; Flin
 ```
 User
   ↓
-Fastify API
+Fastify API                         ← HTTP 202
   ↓
-Submission processing
+BullMQ worker
   ↓
-PostgreSQL
+PostgreSQL form_submissions         ← product log (Flink does not read this)
   ↓
-Incremental submission poller
+Redis Stream submission-events      ← Flink source
   ↓
-Apache Flink
+Apache Flink 1.19
+  keyBy(formId)
+  one-hour event-time tumbling windows
+  keyed window counts + submissionId dedup
   ↓
-Keyed state
+PostgreSQL form_hourly_stats        ← UPSERT SET
   ↓
-One-hour tumbling windows
+GET /api/forms/:formId/analytics/hourly
   ↓
-Hourly aggregation
-  ↓
-PostgreSQL analytics table
-  ↓
-Fastify analytics API
-  ↓
-React dashboard
+React dashboard (15s poll)
 ```
 
 ---
@@ -39,18 +38,21 @@ React dashboard
 ## Checkpoint / crash recovery
 
 ```
-Flink
+Flink (embedded local java -jar)
   ↓
-Checkpoint
+Checkpoint every 10s
+  (window counts, Redis lastId, dedup)
   ↓
-Durable checkpoint storage
+Local directory (FLINK_CHECKPOINT_DIR)
   ↓
 Crash
   ↓
-Restore checkpoint
+LatestCheckpoint → execution.savepoint.path
   ↓
-Continue processing
+XREAD from restored lastId
 ```
+
+A new process does not restore unless that savepoint path is set. `FLINK_RESTORE=skip` starts empty.
 
 ---
 
@@ -59,17 +61,16 @@ Continue processing
 | Component | Role |
 |---|---|
 | **User** | Submits a published form. |
-| **Fastify API** | Validates, rate-limits, accepts the submission. |
-| **Submission processing** | Async persist path so HTTP stays fast under burst. |
-| **PostgreSQL** | Stores each submission row (source of truth). |
-| **Incremental submission poller** | Reads only *new* submission rows and feeds Flink (no Kafka). |
-| **Apache Flink** | Event-time stream processor. |
-| **Keyed state** | Per-`formId` running totals inside Flink. |
-| **One-hour tumbling windows** | Non-overlapping hour buckets. |
-| **Hourly aggregation** | Count per `(formId, hour)`. |
-| **PostgreSQL analytics table** | Pre-aggregated rows for cheap dashboard reads. |
-| **Fastify analytics API** | Serves hourly / keyed stats to the UI. |
-| **React dashboard** | Shows lines like `form_A + 10:00 → 250 submissions`. |
+| **Fastify API** | Validates, rate-limits, enqueues, returns 202. Does not wait on Flink. |
+| **BullMQ worker** | Inserts `form_submissions`, then `XADD`s `{submissionId, formId, submittedAt}`. |
+| **PostgreSQL submissions** | Product source of truth. Not a Flink source. |
+| **Redis Stream `submission-events`** | Buffer Flink reads (`XREAD`, `MAXLEN ~ 2e6`). No Kafka. |
+| **Apache Flink** | Event-time stream job, parallelism 1. |
+| **Keyed state** | Per-`formId` hour accumulators; per-`submissionId` dedup (2h TTL). |
+| **One-hour tumbling windows** | UTC, event time (`submittedAt`). Allowed lateness 5 minutes. |
+| **JDBC sink** | Idempotent `SET` upsert on `(form_id, window_start)`. At-least-once, not XA. |
+| **Fastify analytics API** | `GET /api/forms/:formId/analytics/hourly` reads `form_hourly_stats` only. |
+| **React dashboard** | Hourly ranges + counts; loading / empty / error; periodic refresh. |
 
 ---
 
@@ -78,11 +79,13 @@ Continue processing
 1. **Ingest is independent of Flink.** Analytics lag must not block accepting submissions.
 2. **Event time** (`submittedAt`) assigns the hour bucket, not wall-clock processing time.
 3. **Keyed by `formId`** so forms never share counters.
-4. **Checkpoints** recover Flink state after a crash; raw rows in PostgreSQL can be polled again.
-5. **Analytics writes are idempotent** upserts on `(formId, windowStart)` so replays do not invent duplicate hours.
+4. **Checkpoints** recover Flink state and the Redis stream offset. Postgres rows are **not** re-polled into Flink.
+5. **Analytics writes are idempotent** absolute upserts on `(formId, windowStart)` so replays overwrite the same hour.
+
+**Reliability line:** at-least-once processing plus idempotent SET. Do not call this end-to-end exactly-once.
 
 ---
 
 ## Related doc
 
-How volume, running totals, hour buckets, and mid-stream crashes are handled: [FLINK_VOLUME_HANDLING.md](./FLINK_VOLUME_HANDLING.md).
+Interview-style volume, totals, hour buckets, and crash recovery: [FLINK_VOLUME_HANDLING.md](./FLINK_VOLUME_HANDLING.md).

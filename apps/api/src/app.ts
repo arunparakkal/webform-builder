@@ -9,6 +9,7 @@ import { authRoutes, requireAuth } from "./routes/auth.js";
 import { formsRoutes } from "./routes/forms.js";
 import { publicRoutes } from "./routes/public.js";
 import { statsRoutes } from "./routes/stats.js";
+import { analyticsRoutes } from "./routes/analytics.js";
 import { submissionsRoutes } from "./routes/submissions.js";
 
 declare module "fastify" {
@@ -53,6 +54,7 @@ export async function buildApp(env: Env, redis: Redis) {
     await protectedApp.register(formsRoutes);
     await protectedApp.register(submissionsRoutes);
     await protectedApp.register(statsRoutes);
+    await protectedApp.register(analyticsRoutes);
     await protectedApp.register(aiRoutes);
   });
 

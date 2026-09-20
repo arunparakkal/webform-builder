@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "bullmq";
 import { persistSubmission, prisma, type Prisma } from "@webform/db";
 import { Redis } from "ioredis";
+import { emitSubmissionEvent } from "./submission-events.js";
 
 const SUBMISSION_QUEUE_NAME = "form-submissions";
 
@@ -59,15 +60,20 @@ async function main() {
     SUBMISSION_QUEUE_NAME,
     async (job) => {
       const { formId, formVersionId, payload, idempotencyKey } = job.data;
-      const { stored } = await persistSubmission(prisma, {
+      const persisted = await persistSubmission(prisma, {
         formId,
         formVersionId,
         payload: payload as Prisma.InputJsonValue,
         idempotencyKey,
       });
-      if (!stored) {
+      if (!persisted.stored) {
         console.log(`duplicate submission ignored ${idempotencyKey}`);
       }
+      await emitSubmissionEvent(connection, {
+        submissionId: persisted.submissionId,
+        formId: persisted.formId,
+        submittedAt: persisted.submittedAt,
+      });
     },
     { connection, concurrency },
   );
